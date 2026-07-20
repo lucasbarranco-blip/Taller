@@ -796,14 +796,15 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
     <div class="m-cab"><h3>Sincronización entre computadoras</h3><button class="cerrar" onclick="cerrar('vSync')">×</button></div>
     <div class="m-cuerpo">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="sync-dot" id="syncDot2"></span><b id="syncTxt2">Sin sincronizar</b></div>
-      <p style="color:var(--gris);font-size:12.5px;line-height:1.6;margin-bottom:12px">Para que los cambios se vean en todas las computadoras del taller <b>en tiempo real</b>, conectá una base gratuita de <b>Firebase</b> (de Google). Se configura una vez por computadora y no queda guardada en la página pública: solo tus equipos acceden a los datos.</p>
+      <p style="color:var(--gris);font-size:12.5px;line-height:1.6;margin-bottom:12px">Ya viene todo conectado: no hace falta pegar ninguna configuración. Solo elegí una <b>contraseña del taller</b> y usá la misma en cada computadora. Con esa contraseña comparten los datos <b>en tiempo real</b>.</p>
       <div class="seccion" style="margin-bottom:11px">
-        <h4>1 · Código del taller</h4>
-        <div class="campo" style="margin:0"><label>Un nombre corto, IGUAL en todas las computadoras (ej: taller-barranco)</label><input id="syncTaller" placeholder="taller-barranco"></div>
+        <h4>Contraseña del taller</h4>
+        <div class="campo" style="margin:0"><label>Elegí una contraseña y usá LA MISMA en todas las computadoras del taller.</label><input id="syncTaller" placeholder="tu contraseña del taller"></div>
+        <p style="font-size:11px;color:var(--gris2);margin-top:8px">La primera computadora crea los datos; las demás, con la misma contraseña, los ven al instante.</p>
       </div>
       <div class="seccion" style="margin-bottom:11px">
-        <h4>2 · Configuración de Firebase</h4>
-        <div class="campo" style="margin:0"><label>Pegá el bloque firebaseConfig que te da Firebase (con apiKey, projectId, etc.)</label><textarea id="syncCfgTxt" rows="8" placeholder='{&#10;  "apiKey": "AIza…",&#10;  "authDomain": "tu-proyecto.firebaseapp.com",&#10;  "projectId": "tu-proyecto",&#10;  "appId": "1:…:web:…"&#10;}' style="font-family:var(--mono);font-size:12px"></textarea></div>
+        <h4>Avanzado (opcional)</h4>
+        <div class="campo" style="margin:0"><label>Solo si querés usar OTRA base Firebase. Dejalo vacío para usar la del taller.</label><textarea id="syncCfgTxt" rows="8" placeholder='{&#10;  "apiKey": "AIza…",&#10;  "authDomain": "tu-proyecto.firebaseapp.com",&#10;  "projectId": "tu-proyecto",&#10;  "appId": "1:…:web:…"&#10;}' style="font-family:var(--mono);font-size:12px"></textarea></div>
       </div>
       <details style="font-size:12px;color:var(--gris)"><summary style="cursor:pointer;font-weight:600;color:var(--tinta)">¿Cómo consigo la configuración de Firebase? (una sola vez)</summary>
         <ol style="margin:10px 0 0 18px;line-height:1.8">
@@ -2215,6 +2216,14 @@ function armarHoja(o, modo){
 
 /* ================= INIT ================= */
 /* ================= SINCRONIZACIÓN (Firebase) ================= */
+const FIREBASE_EMBED = {
+  apiKey: "AIzaSyDQoCViDGHmqkFt6GQjOsWFjJgEfq3I31E",
+  authDomain: "taller-os-a6b29.firebaseapp.com",
+  projectId: "taller-os-a6b29",
+  storageBucket: "taller-os-a6b29.firebasestorage.app",
+  messagingSenderId: "1038533617938",
+  appId: "1:1038533617938:web:5a0b81c23a775d66302bcb"
+};
 const SYNC_KEY='taller_sync_cfg';
 let fbDoc=null, syncEstado='off', myClientId=uid(), pushTimer=null, aplicandoRemoto=false;
 var pendienteRender=false;
@@ -2240,11 +2249,12 @@ function syncPush(){
   clearTimeout(pushTimer); pushTimer=setTimeout(pushNow, 700);
 }
 function initSync(){
-  const cfg=syncCfg();
-  if(!cfg || !cfg.firebase || !cfg.taller){ setSyncEstado('off'); return; }
+  const cfg=syncCfg()||{};
+  const fb = cfg.firebase || FIREBASE_EMBED;
+  if(!cfg.taller){ setSyncEstado('off'); setTimeout(()=>{ const c=syncCfg(); if((!c||!c.taller) && !hayModalAbierto()) abrirSync(); }, 500); return; }
   if(typeof firebase==='undefined'){ setSyncEstado('error'); return; }
   try{
-    if(!firebase.apps.length) firebase.initializeApp(cfg.firebase);
+    if(!firebase.apps.length) firebase.initializeApp(fb);
     fbDoc=firebase.firestore().collection('talleres').doc(cfg.taller);
     setSyncEstado('connecting');
     fbDoc.onSnapshot(snap=>{
@@ -2266,7 +2276,7 @@ function abrirSync(){
   const c=syncCfg()||{};
   $('syncTaller').value=c.taller||'';
   $('syncCfgTxt').value=c.firebase?JSON.stringify(c.firebase,null,2):'';
-  $('syncDesc').hidden=!(c && c.firebase);
+  $('syncDesc').hidden=!c.taller;
   pintarSync();
   $('vSync').classList.add('on');
 }
@@ -2280,12 +2290,13 @@ function parseFbCfg(txt){
   }catch(e){ return null; }
 }
 function conectarSync(){
-  const taller=$('syncTaller').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'-');
-  if(!taller) return toast('Poné un código de taller (el mismo en todas las compus).');
-  const fb=parseFbCfg($('syncCfgTxt').value);
-  if(!fb || !fb.projectId || !fb.apiKey) return toast('La configuración de Firebase no es válida. Copiá el bloque completo entre llaves.');
+  const taller=$('syncTaller').value.trim().replace(/[\/\s]+/g,'-');
+  if(!taller) return toast('Escribí la contraseña del taller (la misma en todas las compus).');
+  let fb = FIREBASE_EMBED;
+  const txt = $('syncCfgTxt') ? $('syncCfgTxt').value.trim() : '';
+  if(txt){ const p=parseFbCfg(txt); if(p && p.projectId && p.apiKey) fb=p; }
   localStorage.setItem(SYNC_KEY, JSON.stringify({ taller, firebase: fb }));
-  toast('Conectando con Firebase…');
+  toast('Conectando…');
   setTimeout(()=>location.reload(), 400);
 }
 function desconectarSync(){
