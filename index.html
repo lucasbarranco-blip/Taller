@@ -804,7 +804,8 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
   <div class="modal">
     <div class="m-cab"><h3>Sincronización entre computadoras</h3><button class="cerrar" onclick="cerrar('vSync')">×</button></div>
     <div class="m-cuerpo">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="sync-dot" id="syncDot2"></span><b id="syncTxt2">Sin sincronizar</b></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span class="sync-dot" id="syncDot2"></span><b id="syncTxt2">Sin sincronizar</b></div>
+      <div id="syncTallerActual" style="font-size:12.5px;color:var(--gris);margin-bottom:14px;font-weight:600" hidden></div>
       <p style="color:var(--gris);font-size:12.5px;line-height:1.6;margin-bottom:12px">Ya viene todo conectado: no hace falta pegar ninguna configuración. Solo elegí una <b>contraseña del taller</b> y usá la misma en cada computadora. Con esa contraseña comparten los datos <b>en tiempo real</b>.</p>
       <div class="seccion" style="margin-bottom:11px">
         <h4>Contraseña del taller</h4>
@@ -2244,7 +2245,11 @@ function setSyncEstado(e){ syncEstado=e; pintarSync(); }
 function pintarSync(){
   const map={ off:['#8b93a1','Sin sincronizar'], connecting:['#a16207','Conectando…'], on:['#0e8a5f','Sincronizado'], error:['#c2372e','Sin conexión'] };
   const m=map[syncEstado]||map.off;
+  const cfg=syncCfg();
   [['syncDot','syncTxt'],['syncDot2','syncTxt2']].forEach(p=>{ if($(p[0])) $(p[0]).style.background=m[0]; if($(p[1])) $(p[1]).textContent=m[1]; });
+  const st=$('syncTxt'); if(st) st.title = (cfg&&cfg.taller)?('Taller: '+cfg.taller):'';
+  const ta=$('syncTallerActual');
+  if(ta){ if(cfg&&cfg.taller){ ta.textContent='Conectado al taller: '+cfg.taller; ta.hidden=false; } else { ta.hidden=true; } }
 }
 function dbParaSync(){
   const c=JSON.parse(JSON.stringify(db));
@@ -2300,15 +2305,26 @@ function parseFbCfg(txt){
     return JSON.parse(t);
   }catch(e){ return null; }
 }
-function conectarSync(){
+async function conectarSync(){
   const taller=$('syncTaller').value.trim().replace(/[\/\s]+/g,'-');
   if(!taller) return toast('Escribí la contraseña del taller (la misma en todas las compus).');
   let fb = FIREBASE_EMBED;
   const txt = $('syncCfgTxt') ? $('syncCfgTxt').value.trim() : '';
   if(txt){ const p=parseFbCfg(txt); if(p && p.projectId && p.apiKey) fb=p; }
+  // Aviso anti-error: si esta contraseña no tiene datos y esta compu tampoco, puede ser un tipeo
+  try{
+    if(typeof firebase!=='undefined'){
+      if(!firebase.apps.length) firebase.initializeApp(fb);
+      const snap = await firebase.firestore().collection('talleres').doc(taller).get();
+      const localTiene = (db.ots||[]).length || (db.clientes||[]).length || (db.provs||[]).length || (db.inv||[]).length;
+      if(!snap.exists && !localTiene){
+        if(!confirm('La contraseña «'+taller+'» todavía no tiene datos guardados.\n\n• Si es la PRIMERA computadora del taller, está perfecto: tocá Aceptar.\n• Si ya cargaste datos en otra computadora, quizá la contraseña esté mal escrita. En ese caso tocá Cancelar y revisala.')) return;
+      }
+    }
+  }catch(e){ console.warn('chequeo taller', e); }
   localStorage.setItem(SYNC_KEY, JSON.stringify({ taller, firebase: fb }));
   toast('Conectando…');
-  setTimeout(()=>location.reload(), 400);
+  setTimeout(()=>location.reload(), 500);
 }
 function desconectarSync(){
   if(!confirm('¿Desconectar la sincronización en esta computadora? Los datos quedan guardados localmente.')) return;
