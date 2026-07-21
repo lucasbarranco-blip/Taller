@@ -2277,6 +2277,9 @@ function initSync(){
       if(!snap.exists){ pushNow(); setSyncEstado('on'); return; }
       const data=snap.data();
       if(data._client===myClientId || !data.db){ setSyncEstado('on'); return; }
+      // PROTECCIÓN: no dejar que un remoto vacío borre datos locales; en ese caso subimos lo local
+      const cont = o => (o.ots||[]).length+(o.clientes||[]).length+(o.provs||[]).length+(o.inv||[]).length+(o.tareas||[]).length+(o.turnos||[]).length+(o.conta||[]).length+(o.pagos||[]).length+(o.facturas||[]).length+(o.movs||[]).length;
+      if(cont(data.db)===0 && cont(db)>0){ pushNow(); setSyncEstado('on'); return; }
       const adjLocal={}; (db.provs||[]).forEach(p=>{ if(p.adj) adjLocal[p.id]=p.adj; });
       aplicandoRemoto=true;
       db=data.db; normalizarDB();
