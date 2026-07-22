@@ -2435,28 +2435,38 @@ async function subirDoc(datauri, meta){
   await fs.collection('docs').doc(id).set({ pdf:datauri, nombre:meta.nombre||'Presupuesto.pdf', cliente:meta.cliente||'', taller:((db.cfg&&db.cfg[meta.soc||'AT'])||{}).rz||'', creado:Date.now() });
   return id;
 }
+function puedeCompartirArchivos(){
+  try{ return !!(navigator.canShare && navigator.canShare({files:[new File([new Blob([''],{type:'application/pdf'})],'x.pdf',{type:'application/pdf'})]})); }
+  catch(e){ return false; }
+}
 async function enviarPresupuesto(via){
   const o=otDesdeModal();
   if(!o.cliente.trim()) return toast('Cargá el nombre del cliente antes de enviar.');
-  // Reuso SIEMPRE la misma pestaña (nombre fijo): si ya tenés WhatsApp Web / Gmail abierto, va a ESA. No abre mil.
+  const compartir=puedeCompartirArchivos();
   const winName = via==='mail' ? 'taller_gmail' : 'taller_whatsapp';
-  const win = window.open('', winName);
+  // Si NO se puede compartir archivos, pre-abro la pestaña reutilizable (plan B). Con compartir, no hace falta.
+  let win = compartir ? null : window.open('', winName);
   toast('Generando el PDF…');
   let arch;
   try{ arch=await generarPDFArchivo(o,'cliente'); }
-  catch(e){ console.error('pdf', e); return toast('No se pudo generar el PDF. Probá con «PDF cliente».'); }
+  catch(e){ console.error('pdf', e); if(win) win.close(); return toast('No se pudo generar el PDF. Probá con «PDF cliente».'); }
   const texto=resumenTextoOT(o);
-  // Descargo el PDF y voy DERECHO a WhatsApp Web / Gmail (sin menú Compartir). Adjuntás el PDF descargado.
+  // 1) ADJUNTAR AUTOMÁTICO: elegís WhatsApp o Mail y el PDF va pegado solo (sin buscarlo a mano)
+  if(compartir){
+    try{ await navigator.share({ files:[new File([arch.blob], arch.nombre, {type:'application/pdf'})], text:texto, title:arch.nombre }); return; }
+    catch(e){ if(e && e.name==='AbortError') return; win=window.open('', winName); }
+  }
+  // 2) Plan B (equipos sin compartir archivos): descargo el PDF y abro WhatsApp Web / Gmail directo para adjuntarlo
   descargarBlob(arch.blob, arch.nombre);
   let url;
   if(via==='mail'){
     const asunto='Presupuesto '+o.numero+' — '+((db.cfg[o.soc]||{}).rz||'Taller');
     url='https://mail.google.com/mail/?view=cm&fs=1&tf=1&to='+encodeURIComponent(o.email||'')+'&su='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(texto);
-    toast('Se descargó el PDF (carpeta Descargas). Adjuntalo en el borrador de Gmail.');
+    toast('Se descargó el PDF (Descargas). Adjuntalo en el borrador de Gmail.');
   } else {
     const tel=telWhats(o.celu);
     url = tel ? ('https://web.whatsapp.com/send?phone='+tel+'&text='+encodeURIComponent(texto)) : ('https://web.whatsapp.com/');
-    toast(tel ? 'Se descargó el PDF (carpeta Descargas). Arrastralo al chat de WhatsApp Web.' : 'Sin celular: elegí el contacto en WhatsApp Web y arrastrá el PDF descargado.');
+    toast(tel ? 'Se descargó el PDF (Descargas). Arrastralo al chat de WhatsApp Web.' : 'Sin celular: elegí el contacto y arrastrá el PDF descargado.');
   }
   if(win){ try{ win.location.href=url; win.focus(); }catch(e){ window.open(url, winName); } }
   else window.open(url, winName);
