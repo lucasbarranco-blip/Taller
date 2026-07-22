@@ -2576,10 +2576,9 @@ function armarHoja(o, modo){
     veh + tabla +
     '<div class="h-mo"><h4>Mano de obra</h4><p>'+esc(o.moDet||'—')+'</p></div>'+
     tots +
-    '<div class="h-pie"><div><h4>Condiciones</h4>Presupuesto válido por 7 días a partir de la fecha de emisión. Los repuestos quedan sujetos a disponibilidad de proveedor. Los trabajos se inician una vez aprobado el presente presupuesto.</div>'+
-    '<div class="der"><h4>Contacto</h4>'+esc(cfg.dir||'')+(cfg.dir?'<br>':'')+esc(cfg.tel||'')+(cfg.tel?'<br>':'')+esc(cfg.mail||'')+'</div></div>'+
+    '<div class="h-pie"><div class="der"><h4>Contacto</h4>'+esc(cfg.dir||'')+(cfg.dir?'<br>':'')+esc(cfg.tel||'')+(cfg.tel?'<br>':'')+esc(cfg.mail||'')+'</div></div>'+
     (modo==='cliente' ?
-      ((db.cfg.condiciones&&db.cfg.condiciones.trim())||db.cfg.validez!==undefined ? '<div style="margin-top:16px;font-size:10.5px;color:#555;line-height:1.5"><b>Condiciones:</b> '+esc((db.cfg.condiciones&&db.cfg.condiciones.trim())||('Presupuesto válido por '+((db.cfg.validez!==undefined)?db.cfg.validez:7)+' días.'))+'</div>' : '')+
+      ((db.cfg.condiciones&&db.cfg.condiciones.trim()) ? '<div style="margin-top:16px;font-size:10.5px;color:#555;line-height:1.5"><b>Condiciones:</b> '+esc(db.cfg.condiciones.trim())+'</div>' : '')+
       '<div class="h-firmas">'+
       '<div class="lin"><b>Por '+esc(cfg.rz)+'</b>Firma y aclaración del responsable</div>'+
       '<div class="lin"><b>Conformidad del cliente</b>Firma, aclaración y DNI</div>'+
