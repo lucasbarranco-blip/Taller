@@ -2800,8 +2800,12 @@ function borrarCliente(){ if(cliEdit && confirm('¿Eliminar el cliente '+(cliEdi
 function nuevaOTDeCliente(){
   if(!cliEdit) return; const c=cliEdit;
   cerrar('vCliente'); abrirOT();
+  otClienteSelId=c.id;
   $('otCliente').value=c.nombre||''; $('otCelu').value=c.celu||''; $('otEmail').value=c.email||'';
-  const a=(c.autos||[])[0]; if(a){ $('otVeh').value=a.veh||''; $('otDominio').value=a.dominio||''; $('otKm').value=a.km||''; }
+  cargarAutosCliente(c);
+  const autos=(c.autos||[]);
+  if(autos.length===1 && $('otAutoSel')){ $('otAutoSel').value='0'; elegirAuto(); }
+  else if(autos.length){ const a=autos[0]; $('otVeh').value=a.veh||''; $('otDominio').value=a.dominio||''; $('otKm').value=a.km||''; $('otChasis').value=a.chasis||''; $('otMotor').value=a.motor||''; }
   otEdit && (otEdit.clienteId=c.id);
 }
 const PRIO = { alta:['Alta','#c2372e','#fbe9e7'], media:['Media','#a16207','#fdf1d7'], baja:['Baja','#5b6472','#eceef2'] };
