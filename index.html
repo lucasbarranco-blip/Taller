@@ -229,19 +229,19 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 .h-demo-marca span{transform:rotate(-28deg);font-family:var(--disp);font-weight:800;font-size:64px;letter-spacing:.12em;color:rgba(194,55,46,.13);white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 #hoja{position:relative}
 #hoja{display:none}
-@media print{ body>*:not(#hoja){display:none!important} .app{display:none!important} body{background:#fff} #hoja{display:block!important} @page{size:A4;margin:14mm 13mm} }
+@media print{ body>*:not(#hoja){display:none!important} .app{display:none!important} body{background:#fff} #hoja{display:block!important} @page{size:A4;margin:9mm 12mm} }
 #hoja{font-family:var(--body);color:#222;font-size:12.5px;line-height:1.45}
-#hoja{border-top:4px solid #20242c;padding-top:16px}
-.h-top{display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:3px double #20242c;margin-bottom:14px}
+#hoja{border-top:4px solid #20242c;padding-top:12px}
+.h-top{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:3px double #20242c;margin-bottom:11px}
 .h-meta{display:flex;justify-content:flex-end;gap:0;border:1px solid #d8d8d4;border-radius:6px;overflow:hidden;margin:0 0 18px auto;width:fit-content}
 .h-meta>div{padding:7px 16px;border-left:1px solid #d8d8d4;text-align:center}
 .h-meta>div:first-child{border-left:none}
 .h-meta span{display:block;font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#8a8f96}
 .h-meta b{font-family:var(--mono);font-size:12px;display:block;margin-top:2px}
-.h-firmas{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:52px}
+.h-firmas{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:30px}
 .h-firmas .lin{border-top:1.5px solid #444;padding-top:6px;font-size:11px;color:#555;text-align:center}
 .h-firmas .lin b{display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#333;margin-bottom:2px}
-.h-legal{margin-top:26px;padding-top:10px;border-top:1px solid #e2e2de;text-align:center;font-size:9.5px;color:#8a8f96;letter-spacing:.06em}
+.h-legal{margin-top:16px;padding-top:8px;border-top:1px solid #e2e2de;text-align:center;font-size:9.5px;color:#8a8f96;letter-spacing:.06em}
 .h-logo{display:flex;align-items:center;gap:14px}
 .h-logo img{width:128px;height:128px;object-fit:contain;background:#fff}
 .h-logo .rz{font-family:var(--disp);font-weight:800;font-size:18px;text-transform:uppercase;letter-spacing:.02em}
@@ -257,11 +257,11 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 .h-veh span{color:#777;font-size:10px;text-transform:uppercase;letter-spacing:.08em;display:block}
 .h-veh b{font-family:var(--mono);font-weight:600;font-size:12px}
 #hoja table{width:100%;border-collapse:collapse;margin-bottom:4px}
-#hoja thead th{background:#20242c;color:#fff;font-family:var(--disp);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:8px 11px;text-align:left}
-#hoja tbody td{padding:8px 11px;border-bottom:1px solid #e7e7e4;font-size:12.5px}
+#hoja thead th{background:#20242c;color:#fff;font-family:var(--disp);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 11px;text-align:left}
+#hoja tbody td{padding:6px 11px;border-bottom:1px solid #e7e7e4;font-size:12.5px}
 #hoja tbody tr:nth-child(even){background:#f6f6f4}
 #hoja td.num,#hoja th.num{text-align:right;font-family:var(--mono);font-size:12px}
-.h-mo{margin:14px 0 6px}
+.h-mo{margin:11px 0 5px}
 .h-mo h4{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-bottom:2px solid #20242c;padding-bottom:4px;margin-bottom:7px}
 .h-mo p{font-size:12.5px;color:#333;text-align:justify}
 .h-tots{margin-left:auto;width:330px;margin-top:14px}
@@ -271,7 +271,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 .h-tots .total b{font-family:var(--mono);font-size:15px}
 .h-gan{margin-left:auto;width:330px;margin-top:8px;border:1.5px dashed #999;border-radius:6px;padding:9px 12px;font-size:12.5px}
 .h-gan .fila{display:flex;justify-content:space-between;padding:3px 0}
-.h-pie{display:flex;justify-content:space-between;margin-top:32px;gap:24px;font-size:11.5px;color:#555}
+.h-pie{display:flex;justify-content:space-between;margin-top:18px;gap:24px;font-size:11.5px;color:#555}
 .h-pie h4{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8a8f96;margin-bottom:5px}
 .h-pie .der{text-align:right}
 .h-firma{margin-top:44px;font-size:11.5px;color:#555}
@@ -2439,10 +2439,11 @@ async function generarPDFArchivo(o, modo){
   const canvas=await html2canvas(hoja,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794});
   hoja.setAttribute('style', prev); hoja.style.display='none';
   const { jsPDF }=window.jspdf; const pdf=new jsPDF('p','mm','a4');
-  const pw=210, ph=297, iw=pw, ih=canvas.height*pw/canvas.width;
-  const imgData=canvas.toDataURL('image/jpeg',0.72);
-  if(ih<=ph+1){ pdf.addImage(imgData,'JPEG',0,0,iw,ih); }
-  else { let left=ih, pos=0; while(left>0.5){ pdf.addImage(imgData,'JPEG',0,pos,iw,ih); left-=ph; pos-=ph; if(left>0.5) pdf.addPage(); } }
+  const pw=210, ph=297;
+  const imgData=canvas.toDataURL('image/jpeg',0.78);
+  let w=pw, h=canvas.height*pw/canvas.width;
+  if(h>ph){ h=ph; w=canvas.width*ph/canvas.height; }   // si no entra, lo escala para que TODO quede en UNA hoja
+  pdf.addImage(imgData,'JPEG',(pw-w)/2,0,w,h);
   const nombre='Presupuesto-'+String(o.numero||'').replace(/[^\w-]/g,'')+'.pdf';
   return { blob:pdf.output('blob'), datauri:pdf.output('datauristring'), nombre };
 }
