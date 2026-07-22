@@ -2375,7 +2375,7 @@ function pdfDirecto(id, modo){ const g=otEdit; const o=db.ots.find(x=>x.id===id)
 function otDesdeModal(){
   return { soc:$('otSoc').value, numero: otEdit ? otEdit.numero : '(BORRADOR)', fecha:$('otFecha').value||hoy(),
     cliente:$('otCliente').value, celu:$('otCelu').value, email:$('otEmail').value,
-    veh:$('otVeh').value, dominio:$('otDominio').value, km:$('otKm').value,
+    veh:$('otVeh').value, dominio:$('otDominio').value, km:$('otKm').value, chasis:$('otChasis').value, motor:$('otMotor').value,
     items:leerItems(), repVenta:+$('otRepVenta').value||0, moDet:$('otMOdet').value, moPrecio:+$('otMOprecio').value||0 };
 }
 const PLANTILLA_MSG_DEFAULT = '{taller}\nPRESUPUESTO {numero} — {fecha}\n\nCliente: {cliente}\nVehículo: {vehiculo} ({dominio})\n\n{items}Total repuestos: {repuestos}\nMano de obra: {manoobra}\nTOTAL: {total}\n\n{condiciones}';
