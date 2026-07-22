@@ -1817,15 +1817,27 @@ function setVistaProv(v){
   renderProvs();
 }
 function toggleCC(id){ ccAbiertos.has(id)?ccAbiertos.delete(id):ccAbiertos.add(id); const el=document.getElementById(id); if(el) el.classList.toggle('abierto'); }
+function toggleArchCC(id){ const el=document.getElementById('arch_'+id); if(!el) return; el.hidden=!el.hidden; const b=document.getElementById('archbtn_'+id); if(b) b.textContent=(el.hidden?'Ver ':'Ocultar ')+b.dataset.n+' pagada'+(b.dataset.n!=='1'?'s':'')+' archivada'+(b.dataset.n!=='1'?'s':''); }
+function filaProvCC(p){
+  const est = p.pagada ? ['Pagada','#0e8a5f','#e3f5ee'] : (p.venc&&p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
+  return '<tr><td style="width:100px">'+fFecha(p.fecha)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td style="width:100px">'+fFecha(p.venc)+'</td><td class="num">'+money(p.total)+'</td>'+
+    '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
+    '<td style="white-space:nowrap;text-align:right;width:150px"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?'→ Pendiente':'✓ Pagar')+'</button></td></tr>';
+}
 function renderProvCC(){
   if(!$('boxProvCC')) return;
   const g={};
   db.provs.forEach(p=>{ const k=(p.nombre||'—').trim()||'—'; (g[k]=g[k]||[]).push(p); });
-  const claves=Object.keys(g).sort((a,b)=>a.localeCompare(b));
+  // Solo proveedores REGISTRADOS y que tengan al menos una factura pendiente (las pagadas se archivan)
+  const claves=Object.keys(g).filter(k=>{
+    const fs=g[k]; const pid=(fs.find(x=>x.proveedorId)||{}).proveedorId;
+    return provRegDe(pid,k) && fs.some(p=>!p.pagada);
+  }).sort((a,b)=>a.localeCompare(b));
   $('boxProvCC').innerHTML = claves.length ? claves.map((k,ix)=>{
-    const fs=g[k].slice().sort((a,b)=>(a.venc||a.fecha||'').localeCompare(b.venc||b.fecha||''));
+    const fs=g[k];
+    const pend=fs.filter(p=>!p.pagada).sort((a,b)=>(a.venc||a.fecha||'').localeCompare(b.venc||b.fecha||''));
+    const pagadas=fs.filter(p=>p.pagada).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     const facturado=fs.reduce((a,p)=>a+(p.total||0),0);
-    const pend=fs.filter(p=>!p.pagada);
     const saldo=pend.reduce((a,p)=>a+(p.total||0),0);
     const vencidas=pend.filter(p=>p.venc&&p.venc<hoy());
     const prox=pend.filter(p=>p.venc).map(p=>p.venc).sort()[0];
@@ -1842,25 +1854,19 @@ function renderProvCC(){
       if(reg.alias) b.push('<span class="lbl">Alias</span> <b>'+esc(reg.alias)+'</b> <button class="copiar" onclick="copiar(\''+esc(reg.alias)+'\')">copiar</button>');
       b.push('<button class="copiar" style="margin-left:auto" onclick="abrirProvReg(\''+reg.id+'\')">Editar datos</button>');
       bcard='<div class="bcard">'+b.join('')+'</div>';
-    } else {
-      bcard='<div class="bcard"><span class="lbl">Proveedor no registrado — cargá CUIT y datos bancarios.</span><button class="copiar" style="margin-left:auto" onclick="abrirProvReg(null,\''+esc(k.replace(/'/g,""))+'\')">Registrar</button></div>';
     }
+    const arch = pagadas.length ? '<div style="padding:9px 16px;border-top:1px solid var(--borde)"><button class="btn fantasma mini" id="archbtn_'+gid+'" data-n="'+pagadas.length+'" onclick="event.stopPropagation();toggleArchCC(\''+gid+'\')">Ver '+pagadas.length+' pagada'+(pagadas.length!==1?'s':'')+' archivada'+(pagadas.length!==1?'s':'')+'</button><div id="arch_'+gid+'" hidden style="margin-top:8px"><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Vence</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead><tbody>'+pagadas.map(filaProvCC).join('')+'</tbody></table></div></div></div>' : '';
     return '<div class="cli-grupo'+(ccAbiertos.has(gid)?' abierto':'')+'" id="'+gid+'">'+
       '<div class="cli-cab" onclick="toggleCC(\''+gid+'\')">'+
         '<div class="avatar" style="border-radius:9px">'+inic(k)+'</div>'+
-        '<div class="datos"><b>'+esc(k)+'</b><small>'+fs.length+' factura'+(fs.length!==1?'s':'')+(vencidas.length?' · '+vencidas.length+' vencida'+(vencidas.length!==1?'s':''):'')+(prox?' · próx. vence '+fFecha(prox):'')+'</small></div>'+
+        '<div class="datos"><b>'+esc(k)+'</b><small>'+pend.length+' pendiente'+(pend.length!==1?'s':'')+(vencidas.length?' · '+vencidas.length+' vencida'+(vencidas.length!==1?'s':''):'')+(prox?' · próx. vence '+fFecha(prox):'')+(pagadas.length?' · '+pagadas.length+' archivada'+(pagadas.length!==1?'s':''):'')+'</small></div>'+
         '<div class="mini-kpis"><span>Facturado<b>'+money(facturado)+'</b></span><span>Saldo adeudado<b style="color:'+(saldo>0?'var(--rojo)':'var(--ok)')+'">'+money(saldo)+'</b></span></div>'+
         '<span class="chev">▶</span>'+
       '</div>'+
       '<div class="cli-cuerpo">'+bcard+'<div class="scrollx"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Vence</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead><tbody>'+
-        fs.map(p=>{
-          const est = p.pagada ? ['Pagada','#0e8a5f','#e3f5ee'] : (p.venc&&p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
-          return '<tr><td style="width:100px">'+fFecha(p.fecha)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td style="width:100px">'+fFecha(p.venc)+'</td><td class="num">'+money(p.total)+'</td>'+
-            '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
-            '<td style="white-space:nowrap;text-align:right;width:150px"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?'→ Pendiente':'✓ Pagar')+'</button></td></tr>';
-        }).join('')+
-      '</tbody></table></div></div></div>';
-  }).join('') : '<div class="panelbox"><div class="vacio" style="padding:26px">Todavía no cargaste facturas de proveedor.</div></div>';
+        pend.map(filaProvCC).join('')+
+      '</tbody></table></div>'+arch+'</div></div>';
+  }).join('') : '<div class="panelbox"><div class="vacio" style="padding:26px">No tenés facturas pendientes de proveedores registrados.<br><span style="font-size:12px;color:var(--gris2)">Las pagadas quedan archivadas y las facturas de proveedores sin registrar aparecen en la solapa «Facturas».</span></div></div>';
 }
 function renderProvs(){
   const l = [...db.provs].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
