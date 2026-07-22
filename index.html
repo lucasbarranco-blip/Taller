@@ -2419,40 +2419,28 @@ async function subirDoc(datauri, meta){
   await fs.collection('docs').doc(id).set({ pdf:datauri, nombre:meta.nombre||'Presupuesto.pdf', cliente:meta.cliente||'', taller:((db.cfg&&db.cfg[meta.soc||'AT'])||{}).rz||'', creado:Date.now() });
   return id;
 }
-function puedeCompartirArchivos(){
-  try{ return !!(navigator.canShare && navigator.canShare({files:[new File([new Blob([''],{type:'application/pdf'})],'x.pdf',{type:'application/pdf'})]})); }
-  catch(e){ return false; }
-}
 async function enviarPresupuesto(via){
   const o=otDesdeModal();
   if(!o.cliente.trim()) return toast('Cargá el nombre del cliente antes de enviar.');
-  const compartir = puedeCompartirArchivos();
-  // En compus sin "compartir archivos" abro la pestaña YA (dentro del clic) para el plan B
-  let win = compartir ? null : window.open('about:blank','_blank');
+  // Abro la pestaña YA, dentro del clic, para que el navegador no la bloquee (WhatsApp Web / Gmail)
+  const win = window.open('about:blank','_blank');
   toast('Generando el PDF…');
   let arch;
   try{ arch=await generarPDFArchivo(o,'cliente'); }
   catch(e){ console.error('pdf', e); if(win) win.close(); return toast('No se pudo generar el PDF. Probá con «PDF cliente».'); }
   const texto=resumenTextoOT(o);
-  // 1) Enviar el ARCHIVO PDF real: elegís WhatsApp o Mail y el PDF va adjunto (sin link, sin guardar nada)
-  if(compartir){
-    try{
-      await navigator.share({ files:[new File([arch.blob], arch.nombre, {type:'application/pdf'})], text:texto, title:arch.nombre });
-      return;
-    }catch(e){ if(e && e.name==='AbortError') return; win=window.open('about:blank','_blank'); }
-  }
-  // 2) Plan B (computadoras que no dejan compartir archivos): descargo el PDF y abro WhatsApp/Gmail para adjuntarlo
+  // Descargo el PDF y voy DERECHO a WhatsApp Web / Gmail (sin menú Compartir). Adjuntás el PDF descargado.
   descargarBlob(arch.blob, arch.nombre);
   if(via==='mail'){
     const asunto='Presupuesto '+o.numero+' — '+((db.cfg[o.soc]||{}).rz||'Taller');
     const url='https://mail.google.com/mail/?view=cm&fs=1&tf=1&to='+encodeURIComponent(o.email||'')+'&su='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(texto);
     if(win) win.location.href=url; else window.open(url,'_blank');
-    toast('Te descargué el PDF: adjuntalo en Gmail (quedó en Descargas).');
+    toast('Se descargó el PDF (carpeta Descargas). Adjuntalo en el borrador de Gmail.');
   } else {
     const tel=telWhats(o.celu);
     const url='https://wa.me/'+tel+'?text='+encodeURIComponent(texto);
     if(win) win.location.href=url; else window.open(url,'_blank');
-    toast('Te descargué el PDF: arrastralo al chat de WhatsApp (quedó en Descargas).');
+    toast(tel ? 'Se descargó el PDF (carpeta Descargas). Arrastralo al chat de WhatsApp Web.' : 'Sin celular: elegí el contacto y arrastrá el PDF descargado.');
   }
 }
 function enviarWhatsApp(){ enviarPresupuesto('wpp'); }
