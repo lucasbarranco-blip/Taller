@@ -449,7 +449,12 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <button class="btn" onclick="abrirProv()">+ Nueva factura</button>
     </div>
   </div>
-  <div class="panelbox" id="boxProvFact"><div class="scrollx">
+  <div class="panelbox" id="boxProvFact">
+    <div class="cab-box" style="gap:12px;flex-wrap:wrap">
+      <div class="segm"><button id="pfPend" class="on" onclick="setProvFiltro('pend')">Pendientes</button><button id="pfArch" onclick="setProvFiltro('arch')">Archivadas</button><button id="pfTodas" onclick="setProvFiltro('todas')">Todas</button></div>
+      <div id="provFiltroInfo" style="font-size:12px;color:var(--gris2)"></div>
+    </div>
+    <div class="scrollx">
     <table>
       <thead><tr><th>Proveedor</th><th>Fecha</th><th>Vencimiento</th><th>Factura</th><th>Adjunto</th><th class="num">Ítems</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tbProvs"></tbody>
@@ -1868,15 +1873,20 @@ function renderProvCC(){
       '</tbody></table></div>'+arch+'</div></div>';
   }).join('') : '<div class="panelbox"><div class="vacio" style="padding:26px">No tenés facturas pendientes de proveedores registrados.<br><span style="font-size:12px;color:var(--gris2)">Las pagadas quedan archivadas y las facturas de proveedores sin registrar aparecen en la solapa «Facturas».</span></div></div>';
 }
+let provFiltro='pend';
+function setProvFiltro(v){ provFiltro=v; ['pend','arch','todas'].forEach(x=>{ const b=$('pf'+(x==='pend'?'Pend':x==='arch'?'Arch':'Todas')); if(b) b.classList.toggle('on', x===v); }); renderProvs(); }
 function renderProvs(){
-  const l = [...db.provs].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const todas = [...db.provs].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const nPend = todas.filter(p=>!p.pagada).length, nArch = todas.filter(p=>p.pagada).length;
+  const l = provFiltro==='arch' ? todas.filter(p=>p.pagada) : (provFiltro==='todas' ? todas : todas.filter(p=>!p.pagada));
+  if($('provFiltroInfo')) $('provFiltroInfo').textContent = nPend+' pendiente'+(nPend!==1?'s':'')+' · '+nArch+' archivada'+(nArch!==1?'s':'')+' (pagadas)';
   $('tbProvs').innerHTML = l.length ? l.map(p=>{
     const est = p.pagada ? ['Pagada','#0e8a5f','#e3f5ee'] : (p.venc && p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
     const adj = p.adj ? '<span class="chip-adj" style="cursor:pointer" onclick="verAdjuntoProv(\''+p.id+'\')">📎 '+(p.adj.tipo==='pdf'?'PDF':'Foto')+'</span>' : '<span style="color:var(--gris2)">—</span>';
     return '<tr><td><b>'+esc(p.nombre)+'</b></td><td>'+fFecha(p.fecha)+'</td><td>'+fFecha(p.venc)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td>'+adj+'</td><td class="num">'+(p.items?p.items.length:0)+'</td><td class="num">'+money(p.total)+'</td>'+
     '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
     '<td style="white-space:nowrap"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver detalle</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?'→ Pendiente':'✓ Pagada')+'</button></td></tr>';
-  }).join('') : '<tr><td colspan="9" class="vacio">Cargá la primera factura con el botón "+ Nueva factura". Podés adjuntar la foto y dejar que la IA complete los datos.</td></tr>';
+  }).join('') : '<tr><td colspan="9" class="vacio">'+(provFiltro==='arch'?'No hay facturas archivadas (pagadas) todavía.':(provFiltro==='pend'&&db.provs.length?'No tenés facturas pendientes. Mirá «Archivadas» o «Todas».':'Cargá la primera factura con el botón \'+ Nueva factura\'. Podés adjuntar la foto y dejar que la IA complete los datos.'))+'</td></tr>';
   if($('boxProvFact')) $('boxProvFact').hidden = vistaProv!=='facturas';
   if($('boxProvCC')) $('boxProvCC').hidden = vistaProv!=='cc';
   renderProvCC();
