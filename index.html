@@ -2402,32 +2402,30 @@ async function subirDoc(datauri, meta){
 async function enviarPresupuesto(via){
   const o=otDesdeModal();
   if(!o.cliente.trim()) return toast('Cargá el nombre del cliente antes de enviar.');
+  // Abro la pestaña YA, dentro del clic, para que el navegador no la bloquee (WhatsApp Web / Gmail)
+  const win = window.open('about:blank','_blank');
   toast('Generando el PDF…');
   let arch;
   try{ arch=await generarPDFArchivo(o,'cliente'); }
-  catch(e){ console.error('pdf', e); return toast('No se pudo generar el PDF. Probá con «PDF cliente».'); }
+  catch(e){ console.error('pdf', e); if(win) win.close(); return toast('No se pudo generar el PDF. Probá con «PDF cliente».'); }
   const texto=resumenTextoOT(o);
-  // 1) Compartir el archivo directo (celular / navegador con share de archivos)
-  try{
-    const file=new File([arch.blob], arch.nombre, {type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({ files:[file], text:texto, title:arch.nombre }); return;
-    }
-  }catch(e){ if(e && e.name==='AbortError') return; }
-  // 2) Fallback: subo el PDF a la nube y mando el LINK (el cliente lo abre y descarga, sin guardar nada acá)
+  let link='';
   try{
     const id=await subirDoc(arch.datauri, {nombre:arch.nombre, cliente:o.cliente, soc:o.soc});
-    const link=location.origin+location.pathname+'?doc='+id;
-    if(via==='mail'){
-      const asunto='Presupuesto '+o.numero+' — '+((db.cfg[o.soc]||{}).rz||'Taller');
-      window.location.href='mailto:'+encodeURIComponent(o.email||'')+'?subject='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(texto+'\n\nPresupuesto en PDF: '+link);
-    } else {
-      const tel=telWhats(o.celu);
-      window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(texto+'\n\n📄 Presupuesto en PDF: '+link),'_blank');
-      if(!tel) toast('Sin celular: elegí el contacto en WhatsApp.');
-    }
-    toast('PDF listo: se envió el enlace para descargarlo.');
-  }catch(e){ console.error('subir', e); descargarBlob(arch.blob, arch.nombre); toast('Sin conexión: te descargué el PDF para adjuntarlo a mano.'); }
+    link=location.origin+location.pathname+'?doc='+id;
+  }catch(e){ console.error('subir', e); if(win) win.close(); descargarBlob(arch.blob, arch.nombre); return toast('Sin conexión: te descargué el PDF para adjuntarlo a mano.'); }
+  if(via==='mail'){
+    const asunto='Presupuesto '+o.numero+' — '+((db.cfg[o.soc]||{}).rz||'Taller');
+    const cuerpo=texto+'\n\nPresupuesto en PDF: '+link;
+    const gmail='https://mail.google.com/mail/?view=cm&fs=1&tf=1&to='+encodeURIComponent(o.email||'')+'&su='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(cuerpo);
+    if(win) win.location.href=gmail; else window.location.href='mailto:'+encodeURIComponent(o.email||'')+'?subject='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(cuerpo);
+  } else {
+    const tel=telWhats(o.celu);
+    const wa='https://wa.me/'+tel+'?text='+encodeURIComponent(texto+'\n\n📄 Presupuesto en PDF: '+link);
+    if(win) win.location.href=wa; else window.open(wa,'_blank');
+    if(!tel) toast('Sin celular cargado: elegí el contacto en WhatsApp.');
+  }
+  toast('PDF listo: se adjuntó el enlace de descarga al mensaje.');
 }
 function enviarWhatsApp(){ enviarPresupuesto('wpp'); }
 function enviarMail(){ enviarPresupuesto('mail'); }
