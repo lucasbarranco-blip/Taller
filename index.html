@@ -1270,8 +1270,8 @@ function pintarEnvioModo(){
   if($('emAuto')) $('emAuto').classList.toggle('on', m==='auto');
   if($('emDirecto')) $('emDirecto').classList.toggle('on', m==='directo');
   const info=$('emInfo'); if(info) info.innerHTML = m==='auto'
-    ? 'Aparece el menú <b>Compartir</b> y el PDF va <b>adjunto solo</b> — tocá el ícono de WhatsApp o Gmail ahí. Ideal para no buscar el archivo a mano.'
-    : 'Va <b>derecho</b> a WhatsApp Web / Gmail (borrador listo) y te <b>descarga el PDF</b> para adjuntarlo con el clip 📎.';
+    ? 'WhatsApp: aparece el menú <b>Compartir</b> y el PDF va <b>adjunto solo</b> (tocá WhatsApp ahí). El <b>e-mail siempre abre Gmail</b> y descarga el PDF para adjuntar.'
+    : 'WhatsApp y e-mail van <b>derecho</b> a WhatsApp Web / Gmail (borrador listo) y te <b>descargan el PDF</b> para adjuntarlo con el clip 📎.';
 }
 function restaurarMsg(){ if($('cfgMsg')){ $('cfgMsg').value=PLANTILLA_MSG_DEFAULT; toast('Cargué el mensaje por defecto. Editalo y guardá.'); } }
 function guardarCfgMensajes(){
@@ -2460,7 +2460,7 @@ function puedeCompartirArchivos(){
 async function enviarPresupuesto(via){
   const o=otDesdeModal();
   if(!o.cliente.trim()) return toast('Cargá el nombre del cliente antes de enviar.');
-  const compartir = getEnvioModo()!=='directo' && puedeCompartirArchivos();
+  const compartir = via!=='mail' && getEnvioModo()!=='directo' && puedeCompartirArchivos(); // el e-mail SIEMPRE va derecho a Gmail (Windows manda los mails a Outlook por defecto)
   const winName = via==='mail' ? 'taller_gmail' : 'taller_whatsapp';
   // Si NO se puede compartir archivos, pre-abro la pestaña reutilizable (plan B). Con compartir, no hace falta.
   let win = compartir ? null : window.open('', winName);
