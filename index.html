@@ -664,13 +664,15 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <button class="btn blanco" style="margin-top:12px" onclick="abrirCfg()">Editar sociedades y logo</button>
     </div>
 
-    <div class="cfg-card">
+    <div class="cfg-card" style="grid-column:1/-1">
       <h3><span class="ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>Mensajes y condiciones</h3>
       <p>Texto que acompaña al presupuesto cuando lo mandás por WhatsApp o e-mail y las condiciones al pie.</p>
       <div class="campo"><label>Saludo inicial (opcional)</label><input id="cfgSaludo" placeholder="¡Hola! Te paso el presupuesto:"></div>
       <div class="campo"><label>Validez del presupuesto (días)</label><input id="cfgValidez" type="number" min="0" placeholder="7"></div>
-      <div class="campo" style="margin:0"><label>Condiciones / texto al pie</label><textarea id="cfgCond" placeholder="Presupuesto válido por 7 días. Los precios pueden variar según disponibilidad."></textarea></div>
-      <button class="btn" style="margin-top:12px" onclick="guardarCfgMensajes()">Guardar mensajes</button>
+      <div class="campo"><label>Condiciones / texto al pie</label><textarea id="cfgCond" placeholder="Presupuesto válido por 7 días. Los precios pueden variar según disponibilidad."></textarea></div>
+      <div class="campo" style="margin:0"><label>Mensaje personalizado (WhatsApp / e-mail)</label><textarea id="cfgMsg" style="min-height:130px" placeholder="Dejalo vacío para usar el mensaje automático, o escribí acá el tuyo usando los campos de abajo."></textarea></div>
+      <div style="font-size:11px;color:var(--gris2);margin-top:7px;line-height:1.7">Campos que se reemplazan solos: <b>{cliente}</b> <b>{vehiculo}</b> <b>{dominio}</b> <b>{numero}</b> <b>{fecha}</b> <b>{total}</b> <b>{repuestos}</b> <b>{manoobra}</b> <b>{items}</b> <b>{taller}</b> <b>{condiciones}</b></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button class="btn" onclick="guardarCfgMensajes()">Guardar mensajes</button><button class="btn blanco" onclick="restaurarMsg()">Cargar mensaje por defecto</button></div>
     </div>
 
     <div class="cfg-card">
@@ -1146,7 +1148,7 @@ function normalizarDB(){
   db.cfg.TQ=db.cfg.TQ||{rz:'TERRA QUATTRO SRL',sub:'GWM',cuit:'',dir:'',tel:'',mail:''};
   db.cfg.ia=db.cfg.ia||'';
   db.cfg.categorias=db.cfg.categorias||['Alquiler','Sueldos','Servicios','Impuestos','Herramientas','Combustible','Seguros','Insumos','Honorarios'];
-  if(db.cfg.validez===undefined) db.cfg.validez=7; db.cfg.saludo=db.cfg.saludo||''; db.cfg.condiciones=db.cfg.condiciones||''; if(db.cfg.ivaDef===undefined) db.cfg.ivaDef=21;
+  if(db.cfg.validez===undefined) db.cfg.validez=7; db.cfg.saludo=db.cfg.saludo||''; db.cfg.condiciones=db.cfg.condiciones||''; if(db.cfg.ivaDef===undefined) db.cfg.ivaDef=21; db.cfg.msgPlantilla=db.cfg.msgPlantilla||'';
   db.seq=db.seq||{AT:0,TQ:0};
 }
 normalizarDB();
@@ -1234,7 +1236,7 @@ function irTab(t){
 function renderConfig(){
   if(!$('cfgSaludo')) return;
   $('cfgSaludo').value=db.cfg.saludo||''; $('cfgValidez').value=(db.cfg.validez!==undefined?db.cfg.validez:7);
-  $('cfgCond').value=db.cfg.condiciones||''; $('cfgIvaDef').value=(db.cfg.ivaDef!==undefined?db.cfg.ivaDef:21);
+  $('cfgCond').value=db.cfg.condiciones||''; $('cfgIvaDef').value=(db.cfg.ivaDef!==undefined?db.cfg.ivaDef:21); if($('cfgMsg')) $('cfgMsg').value=db.cfg.msgPlantilla||'';
   const sr=$('cfgSocResumen'); if(sr){ const a=db.cfg.AT||{},b=db.cfg.TQ||{}; sr.innerHTML='<b>'+esc(a.rz||'—')+'</b>'+(a.cuit?' · CUIT '+esc(a.cuit):'')+'<br><b>'+esc(b.rz||'—')+'</b>'+(b.cuit?' · CUIT '+esc(b.cuit):''); }
   const yr=$('cfgSyncResumen'); if(yr){ const c=syncCfg(); yr.innerHTML = (c&&c.taller)?('Conectado al taller: <b>'+esc(c.taller)+'</b>'):'Sin sincronizar todavía.'; }
   renderProveedoresCfg();
@@ -1248,10 +1250,12 @@ function renderProveedoresCfg(){
       '<button class="btn blanco mini" onclick="abrirProvReg(\''+v.id+'\')">Editar</button></div>';
   }).join('') : '<div class="vacio" style="padding:18px;text-align:center;color:var(--gris2)">Todavía no registraste proveedores.</div>';
 }
+function restaurarMsg(){ if($('cfgMsg')){ $('cfgMsg').value=PLANTILLA_MSG_DEFAULT; toast('Cargué el mensaje por defecto. Editalo y guardá.'); } }
 function guardarCfgMensajes(){
   db.cfg.saludo=$('cfgSaludo').value.trim();
   db.cfg.validez=($('cfgValidez').value===''?7:Math.max(0,+$('cfgValidez').value||0));
   db.cfg.condiciones=$('cfgCond').value.trim();
+  db.cfg.msgPlantilla=$('cfgMsg')?$('cfgMsg').value:'';
   db.cfg.ivaDef=($('cfgIvaDef').value===''?21:Math.max(0,+$('cfgIvaDef').value||0));
   guardar(); toast('Configuración guardada.');
 }
@@ -2340,7 +2344,23 @@ function otDesdeModal(){
     veh:$('otVeh').value, dominio:$('otDominio').value, km:$('otKm').value,
     items:leerItems(), repVenta:+$('otRepVenta').value||0, moDet:$('otMOdet').value, moPrecio:+$('otMOprecio').value||0 };
 }
+const PLANTILLA_MSG_DEFAULT = '{taller}\nPRESUPUESTO {numero} — {fecha}\n\nCliente: {cliente}\nVehículo: {vehiculo} ({dominio})\n\n{items}Total repuestos: {repuestos}\nMano de obra: {manoobra}\nTOTAL: {total}\n\n{condiciones}';
+function itemsTexto(o){
+  const c=(o.items||[]).filter(i=>i.desc);
+  if(!c.length) return '';
+  let s='Repuestos e insumos:\n';
+  c.forEach(i=>{ s+='- '+i.desc+(i.cant?' x'+i.cant+(i.unidad&&i.unidad!=='Unidad'?' '+i.unidad:''):'')+'\n'; });
+  return s+'\n';
+}
+function aplicarPlantilla(tpl,o){
+  const cfg=db.cfg[o.soc]||{}, t=totalesOT(o);
+  const cond=(db.cfg.condiciones&&db.cfg.condiciones.trim())?db.cfg.condiciones.trim():('Presupuesto válido por '+((db.cfg.validez!==undefined)?db.cfg.validez:7)+' días.');
+  const map={ '{taller}':cfg.rz||'Taller','{cliente}':o.cliente||'—','{vehiculo}':o.veh||'—','{dominio}':o.dominio||'—','{patente}':o.dominio||'—','{numero}':o.numero||'','{fecha}':fFecha(o.fecha),'{km}':o.km||'','{repuestos}':money(t.rep),'{manoobra}':money(o.moPrecio),'{total}':money(t.venta),'{items}':itemsTexto(o),'{validez}':((db.cfg.validez!==undefined)?db.cfg.validez:7),'{condiciones}':cond,'{saludo}':db.cfg.saludo||'' };
+  let s=tpl; Object.keys(map).forEach(k=>{ s=s.split(k).join(map[k]); });
+  return s;
+}
 function resumenTextoOT(o){
+  if(db.cfg.msgPlantilla && db.cfg.msgPlantilla.trim()) return aplicarPlantilla(db.cfg.msgPlantilla, o);
   const cfg = db.cfg[o.soc]||{}, t = totalesOT(o);
   let x = '';
   if(db.cfg.saludo) x += db.cfg.saludo+'\n\n';
@@ -2399,33 +2419,41 @@ async function subirDoc(datauri, meta){
   await fs.collection('docs').doc(id).set({ pdf:datauri, nombre:meta.nombre||'Presupuesto.pdf', cliente:meta.cliente||'', taller:((db.cfg&&db.cfg[meta.soc||'AT'])||{}).rz||'', creado:Date.now() });
   return id;
 }
+function puedeCompartirArchivos(){
+  try{ return !!(navigator.canShare && navigator.canShare({files:[new File([new Blob([''],{type:'application/pdf'})],'x.pdf',{type:'application/pdf'})]})); }
+  catch(e){ return false; }
+}
 async function enviarPresupuesto(via){
   const o=otDesdeModal();
   if(!o.cliente.trim()) return toast('Cargá el nombre del cliente antes de enviar.');
-  // Abro la pestaña YA, dentro del clic, para que el navegador no la bloquee (WhatsApp Web / Gmail)
-  const win = window.open('about:blank','_blank');
+  const compartir = puedeCompartirArchivos();
+  // En compus sin "compartir archivos" abro la pestaña YA (dentro del clic) para el plan B
+  let win = compartir ? null : window.open('about:blank','_blank');
   toast('Generando el PDF…');
   let arch;
   try{ arch=await generarPDFArchivo(o,'cliente'); }
   catch(e){ console.error('pdf', e); if(win) win.close(); return toast('No se pudo generar el PDF. Probá con «PDF cliente».'); }
   const texto=resumenTextoOT(o);
-  let link='';
-  try{
-    const id=await subirDoc(arch.datauri, {nombre:arch.nombre, cliente:o.cliente, soc:o.soc});
-    link=location.origin+location.pathname+'?doc='+id;
-  }catch(e){ console.error('subir', e); if(win) win.close(); descargarBlob(arch.blob, arch.nombre); return toast('Sin conexión: te descargué el PDF para adjuntarlo a mano.'); }
+  // 1) Enviar el ARCHIVO PDF real: elegís WhatsApp o Mail y el PDF va adjunto (sin link, sin guardar nada)
+  if(compartir){
+    try{
+      await navigator.share({ files:[new File([arch.blob], arch.nombre, {type:'application/pdf'})], text:texto, title:arch.nombre });
+      return;
+    }catch(e){ if(e && e.name==='AbortError') return; win=window.open('about:blank','_blank'); }
+  }
+  // 2) Plan B (computadoras que no dejan compartir archivos): descargo el PDF y abro WhatsApp/Gmail para adjuntarlo
+  descargarBlob(arch.blob, arch.nombre);
   if(via==='mail'){
     const asunto='Presupuesto '+o.numero+' — '+((db.cfg[o.soc]||{}).rz||'Taller');
-    const cuerpo=texto+'\n\nPresupuesto en PDF: '+link;
-    const gmail='https://mail.google.com/mail/?view=cm&fs=1&tf=1&to='+encodeURIComponent(o.email||'')+'&su='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(cuerpo);
-    if(win) win.location.href=gmail; else window.location.href='mailto:'+encodeURIComponent(o.email||'')+'?subject='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(cuerpo);
+    const url='https://mail.google.com/mail/?view=cm&fs=1&tf=1&to='+encodeURIComponent(o.email||'')+'&su='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(texto);
+    if(win) win.location.href=url; else window.open(url,'_blank');
+    toast('Te descargué el PDF: adjuntalo en Gmail (quedó en Descargas).');
   } else {
     const tel=telWhats(o.celu);
-    const wa='https://wa.me/'+tel+'?text='+encodeURIComponent(texto+'\n\n📄 Presupuesto en PDF: '+link);
-    if(win) win.location.href=wa; else window.open(wa,'_blank');
-    if(!tel) toast('Sin celular cargado: elegí el contacto en WhatsApp.');
+    const url='https://wa.me/'+tel+'?text='+encodeURIComponent(texto);
+    if(win) win.location.href=url; else window.open(url,'_blank');
+    toast('Te descargué el PDF: arrastralo al chat de WhatsApp (quedó en Descargas).');
   }
-  toast('PDF listo: se adjuntó el enlace de descarga al mensaje.');
 }
 function enviarWhatsApp(){ enviarPresupuesto('wpp'); }
 function enviarMail(){ enviarPresupuesto('mail'); }
