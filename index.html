@@ -2453,6 +2453,7 @@ async function subirDoc(datauri, meta){
   await fs.collection('docs').doc(id).set({ pdf:datauri, nombre:meta.nombre||'Presupuesto.pdf', cliente:meta.cliente||'', taller:((db.cfg&&db.cfg[meta.soc||'AT'])||{}).rz||'', creado:Date.now() });
   return id;
 }
+function esMovil(){ try{ return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints>1 && /Mobi|Tablet/i.test(navigator.userAgent)); }catch(e){ return false; } }
 function puedeCompartirArchivos(){
   try{ return !!(navigator.canShare && navigator.canShare({files:[new File([new Blob([''],{type:'application/pdf'})],'x.pdf',{type:'application/pdf'})]})); }
   catch(e){ return false; }
@@ -2460,7 +2461,8 @@ function puedeCompartirArchivos(){
 async function enviarPresupuesto(via){
   const o=otDesdeModal();
   if(!o.cliente.trim()) return toast('Cargá el nombre del cliente antes de enviar.');
-  const compartir = via!=='mail' && getEnvioModo()!=='directo' && puedeCompartirArchivos(); // el e-mail SIEMPRE va derecho a Gmail (Windows manda los mails a Outlook por defecto)
+  // WhatsApp: adjunta solo (menú compartir). E-mail: solo en celular usa compartir (la app de Gmail adjunta); en compu va derecho a Gmail porque Windows lo mandaría a Outlook.
+  const compartir = getEnvioModo()!=='directo' && puedeCompartirArchivos() && (via!=='mail' || esMovil());
   const winName = via==='mail' ? 'taller_gmail' : 'taller_whatsapp';
   // Si NO se puede compartir archivos, pre-abro la pestaña reutilizable (plan B). Con compartir, no hace falta.
   let win = compartir ? null : window.open('', winName);
