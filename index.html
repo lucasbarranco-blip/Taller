@@ -2422,26 +2422,28 @@ async function subirDoc(datauri, meta){
 async function enviarPresupuesto(via){
   const o=otDesdeModal();
   if(!o.cliente.trim()) return toast('Cargá el nombre del cliente antes de enviar.');
-  // Abro la pestaña YA, dentro del clic, para que el navegador no la bloquee (WhatsApp Web / Gmail)
-  const win = window.open('about:blank','_blank');
+  // Reuso SIEMPRE la misma pestaña (nombre fijo): si ya tenés WhatsApp Web / Gmail abierto, va a ESA. No abre mil.
+  const winName = via==='mail' ? 'taller_gmail' : 'taller_whatsapp';
+  const win = window.open('', winName);
   toast('Generando el PDF…');
   let arch;
   try{ arch=await generarPDFArchivo(o,'cliente'); }
-  catch(e){ console.error('pdf', e); if(win) win.close(); return toast('No se pudo generar el PDF. Probá con «PDF cliente».'); }
+  catch(e){ console.error('pdf', e); return toast('No se pudo generar el PDF. Probá con «PDF cliente».'); }
   const texto=resumenTextoOT(o);
   // Descargo el PDF y voy DERECHO a WhatsApp Web / Gmail (sin menú Compartir). Adjuntás el PDF descargado.
   descargarBlob(arch.blob, arch.nombre);
+  let url;
   if(via==='mail'){
     const asunto='Presupuesto '+o.numero+' — '+((db.cfg[o.soc]||{}).rz||'Taller');
-    const url='https://mail.google.com/mail/?view=cm&fs=1&tf=1&to='+encodeURIComponent(o.email||'')+'&su='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(texto);
-    if(win) win.location.href=url; else window.open(url,'_blank');
+    url='https://mail.google.com/mail/?view=cm&fs=1&tf=1&to='+encodeURIComponent(o.email||'')+'&su='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(texto);
     toast('Se descargó el PDF (carpeta Descargas). Adjuntalo en el borrador de Gmail.');
   } else {
     const tel=telWhats(o.celu);
-    const url='https://wa.me/'+tel+'?text='+encodeURIComponent(texto);
-    if(win) win.location.href=url; else window.open(url,'_blank');
-    toast(tel ? 'Se descargó el PDF (carpeta Descargas). Arrastralo al chat de WhatsApp Web.' : 'Sin celular: elegí el contacto y arrastrá el PDF descargado.');
+    url = tel ? ('https://web.whatsapp.com/send?phone='+tel+'&text='+encodeURIComponent(texto)) : ('https://web.whatsapp.com/');
+    toast(tel ? 'Se descargó el PDF (carpeta Descargas). Arrastralo al chat de WhatsApp Web.' : 'Sin celular: elegí el contacto en WhatsApp Web y arrastrá el PDF descargado.');
   }
+  if(win){ try{ win.location.href=url; win.focus(); }catch(e){ window.open(url, winName); } }
+  else window.open(url, winName);
 }
 function enviarWhatsApp(){ enviarPresupuesto('wpp'); }
 function enviarMail(){ enviarPresupuesto('mail'); }
