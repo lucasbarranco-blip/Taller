@@ -708,7 +708,8 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
         <div>
           <canvas id="firmaCanvas" width="440" height="150" style="border:1px dashed var(--borde2);border-radius:10px;background:#fff;touch-action:none;cursor:crosshair;max-width:100%"></canvas>
-          <div style="display:flex;gap:10px;margin-top:10px"><button class="btn blanco mini" onclick="limpiarFirmaCanvas()">Limpiar</button><button class="btn mini" onclick="guardarFirmaTQ()">Guardar firma</button></div>
+          <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap"><button class="btn blanco mini" onclick="limpiarFirmaCanvas()">Limpiar</button><button class="btn mini" onclick="guardarFirmaTQ()">Guardar lo dibujado</button><button class="btn blanco mini" onclick="document.getElementById('firmaFile').click()">📷 Subir imagen de firma</button><input type="file" id="firmaFile" accept="image/*" hidden onchange="subirFirmaImg(this)"></div>
+          <div style="font-size:11px;color:var(--gris2);margin-top:6px">Tip: subí una foto de tu firma sobre papel blanco (solo la firma, sin el texto). Se recorta y ajusta sola.</div>
         </div>
         <div style="flex:1;min-width:220px">
           <div class="campo"><label>Aclaración / CUIT (texto debajo de la firma)</label><input id="cfgFirmaTexto" placeholder="Luciano Magnotti · CUIT 20-43872162-3"></div>
@@ -1317,6 +1318,26 @@ function guardarFirmaTQ(){
   if(!_firmaVacia){ db.cfg.firmaTQ=$('firmaCanvas').toDataURL('image/png'); }
   db.cfg.firmaTQtexto=$('cfgFirmaTexto').value.trim();
   guardar(); renderFirmaTQ(); toast('Firma de Terra Quattro guardada.');
+}
+function subirFirmaImg(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=520; let w=img.width, h=img.height;
+      if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,w,h); x.drawImage(img,0,0,w,h);
+      db.cfg.firmaTQ=c.toDataURL('image/jpeg',0.85);
+      db.cfg.firmaTQtexto=($('cfgFirmaTexto')?$('cfgFirmaTexto').value.trim():'')||db.cfg.firmaTQtexto||'';
+      guardar(); renderFirmaTQ(); toast('Firma cargada desde imagen.');
+    };
+    img.onerror=()=>toast('No se pudo leer la imagen.');
+    img.src=rd.result;
+  };
+  rd.readAsDataURL(f);
+  input.value='';
 }
 function borrarFirmaTQ(){ db.cfg.firmaTQ=''; guardar(); limpiarFirmaCanvas(); renderFirmaTQ(); toast('Firma borrada.'); }
 function renderFirmaTQ(){
@@ -2648,7 +2669,6 @@ function armarHoja(o, modo){
     veh + tabla +
     '<div class="h-mo"><h4>Mano de obra</h4><p>'+esc(o.moDet||'—')+'</p></div>'+
     tots +
-    '<div class="h-pie"><div class="der"><h4>Contacto</h4>'+esc(cfg.dir||'')+(cfg.dir?'<br>':'')+esc(cfg.tel||'')+(cfg.tel?'<br>':'')+esc(cfg.mail||'')+'</div></div>'+
     (modo==='cliente' ?
       ((db.cfg.condiciones&&db.cfg.condiciones.trim()) ? '<div style="margin-top:16px;font-size:10.5px;color:#555;line-height:1.5"><b>Condiciones:</b> '+esc(db.cfg.condiciones.trim())+'</div>' : '')+
       (o.soc==='AT' ? '' :
