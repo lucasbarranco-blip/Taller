@@ -231,8 +231,8 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 #hoja{display:none}
 @media print{ body>*:not(#hoja){display:none!important} .app{display:none!important} body{background:#fff} #hoja{display:block!important} @page{size:A4;margin:9mm 12mm} }
 #hoja{font-family:var(--body);color:#222;font-size:12.5px;line-height:1.45}
-#hoja{border-top:4px solid #20242c;padding-top:12px}
-.h-top{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:3px double #20242c;margin-bottom:11px}
+#hoja{--acc:#c2372e;border-top:4px solid var(--acc);padding-top:12px}
+.h-top{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:3px double var(--acc);margin-bottom:11px}
 .h-meta{display:flex;justify-content:flex-end;gap:0;border:1px solid #d8d8d4;border-radius:6px;overflow:hidden;margin:0 0 18px auto;width:fit-content}
 .h-meta>div{padding:7px 16px;border-left:1px solid #d8d8d4;text-align:center}
 .h-meta>div:first-child{border-left:none}
@@ -241,13 +241,15 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 .h-firmas{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:30px}
 .h-firmas .lin{border-top:1.5px solid #444;padding-top:6px;font-size:11px;color:#555;text-align:center}
 .h-firmas .lin b{display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#333;margin-bottom:2px}
+.h-firmas .fcol{display:flex;flex-direction:column;justify-content:flex-end}
+.h-firmas .firma-img{max-height:52px;max-width:78%;object-fit:contain;display:block;margin:0 auto 1px}
 .h-legal{margin-top:16px;padding-top:8px;border-top:1px solid #e2e2de;text-align:center;font-size:9.5px;color:#8a8f96;letter-spacing:.06em}
 .h-logo{display:flex;align-items:center;gap:14px}
 .h-logo img{width:128px;height:128px;object-fit:contain;background:#fff}
 .h-logo .rz{font-family:var(--disp);font-weight:800;font-size:18px;text-transform:uppercase;letter-spacing:.02em}
 .h-logo .rz small{display:block;font-family:var(--body);font-weight:500;font-size:10.5px;color:#666;letter-spacing:.1em;margin-top:3px}
 .h-tit{text-align:right}
-.h-tit .p{font-family:var(--disp);font-weight:800;font-size:28px;letter-spacing:.1em;color:#20242c}
+.h-tit .p{font-family:var(--disp);font-weight:800;font-size:28px;letter-spacing:.1em;color:var(--acc)}
 .h-tit .nro{font-family:var(--mono);font-size:14px;letter-spacing:.14em;color:#555;margin-top:3px}
 .h-info{display:flex;justify-content:space-between;margin-bottom:18px;gap:20px}
 .h-info h4{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#8a8f96;margin-bottom:6px}
@@ -257,17 +259,17 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 .h-veh span{color:#777;font-size:10px;text-transform:uppercase;letter-spacing:.08em;display:block}
 .h-veh b{font-family:var(--mono);font-weight:600;font-size:12px}
 #hoja table{width:100%;border-collapse:collapse;margin-bottom:4px}
-#hoja thead th{background:#20242c;color:#fff;font-family:var(--disp);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 11px;text-align:left}
+#hoja thead th{background:var(--acc);color:#fff;font-family:var(--disp);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:6px 11px;text-align:left}
 #hoja tbody td{padding:6px 11px;border-bottom:1px solid #e7e7e4;font-size:12.5px}
 #hoja tbody tr:nth-child(even){background:#f6f6f4}
 #hoja td.num,#hoja th.num{text-align:right;font-family:var(--mono);font-size:12px}
 .h-mo{margin:11px 0 5px}
-.h-mo h4{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-bottom:2px solid #20242c;padding-bottom:4px;margin-bottom:7px}
+.h-mo h4{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-bottom:2px solid var(--acc);padding-bottom:4px;margin-bottom:7px}
 .h-mo p{font-size:12.5px;color:#333;text-align:justify}
 .h-tots{margin-left:auto;width:330px;margin-top:14px}
 .h-tots .fila{display:flex;justify-content:space-between;padding:7px 12px;font-size:13px;border-bottom:1px solid #e2e2df}
 .h-tots .fila b{font-family:var(--mono)}
-.h-tots .total{background:#20242c;color:#fff;font-family:var(--disp);font-weight:800;font-size:15px;letter-spacing:.05em;padding:11px 12px;display:flex;justify-content:space-between;margin-top:6px;border-radius:4px}
+.h-tots .total{background:var(--acc);color:#fff;font-family:var(--disp);font-weight:800;font-size:15px;letter-spacing:.05em;padding:11px 12px;display:flex;justify-content:space-between;margin-top:6px;border-radius:4px}
 .h-tots .total b{font-family:var(--mono);font-size:15px}
 .h-gan{margin-left:auto;width:330px;margin-top:8px;border:1.5px dashed #999;border-radius:6px;padding:9px 12px;font-size:12.5px}
 .h-gan .fila{display:flex;justify-content:space-between;padding:3px 0}
@@ -451,7 +453,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
   </div>
   <div class="panelbox" id="boxProvFact">
     <div class="cab-box" style="gap:12px;flex-wrap:wrap">
-      <div class="segm"><button id="pfPend" class="on" onclick="setProvFiltro('pend')">Pendientes</button><button id="pfArch" onclick="setProvFiltro('arch')">Archivadas</button><button id="pfTodas" onclick="setProvFiltro('todas')">Todas</button></div>
+      <div class="segm"><button id="pfPend" class="on" onclick="setProvFiltro('pend')">Pendientes</button><button id="pfArch" onclick="setProvFiltro('arch')">Pagadas</button><button id="pfTodas" onclick="setProvFiltro('todas')">Todas</button></div>
       <div id="provFiltroInfo" style="font-size:12px;color:var(--gris2)"></div>
     </div>
     <div class="scrollx">
@@ -612,7 +614,12 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
     </div>
   </div></div>
 
-  <div class="panelbox"><div class="scrollx">
+  <div class="panelbox">
+    <div class="cab-box" style="gap:12px;flex-wrap:wrap">
+      <div class="segm"><button id="cmTodos" class="on" onclick="setContaMedio('')">Todos</button><button id="cmBanco" onclick="setContaMedio('Banco')">Banco</button><button id="cmEfectivo" onclick="setContaMedio('Efectivo')">Efectivo</button></div>
+      <div id="ctMedioInfo" style="font-size:12px;color:var(--gris2)"></div>
+    </div>
+    <div class="scrollx">
     <table>
       <thead><tr><th>Fecha</th><th>Sociedad</th><th>Tipo</th><th>Medio</th><th>Categoría</th><th>Detalle</th><th>Origen</th><th class="num">Monto</th><th class="num">Saldo</th><th></th></tr></thead>
       <tbody id="tbConta"></tbody>
@@ -693,6 +700,23 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <p>Cómo se manda el PDF por WhatsApp / e-mail. <b>Se guarda solo en ESTA computadora</b> (cada equipo elige el suyo).</p>
       <div class="segm" style="width:100%"><button id="emAuto" style="flex:1" onclick="setEnvioModo('auto')">Adjuntar automático</button><button id="emDirecto" style="flex:1" onclick="setEnvioModo('directo')">Ir directo</button></div>
       <div id="emInfo" style="font-size:11.5px;color:var(--gris2);margin-top:10px;line-height:1.6"></div>
+    </div>
+
+    <div class="cfg-card" style="grid-column:1/-1">
+      <h3><span class="ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></span>Firma para Terra Quattro</h3>
+      <p>Dibujá tu firma con el mouse o el dedo. Se usa <b>solo en los documentos de Terra Quattro</b> (los del gobierno). All Terrain sale sin firmas.</p>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+        <div>
+          <canvas id="firmaCanvas" width="440" height="150" style="border:1px dashed var(--borde2);border-radius:10px;background:#fff;touch-action:none;cursor:crosshair;max-width:100%"></canvas>
+          <div style="display:flex;gap:10px;margin-top:10px"><button class="btn blanco mini" onclick="limpiarFirmaCanvas()">Limpiar</button><button class="btn mini" onclick="guardarFirmaTQ()">Guardar firma</button></div>
+        </div>
+        <div style="flex:1;min-width:220px">
+          <div class="campo"><label>Aclaración / CUIT (texto debajo de la firma)</label><input id="cfgFirmaTexto" placeholder="Luciano Magnotti · CUIT 20-43872162-3"></div>
+          <div style="font-size:11.5px;color:var(--gris2);margin-bottom:6px">Firma guardada actualmente:</div>
+          <div id="firmaPreview" style="border:1px solid var(--borde);border-radius:8px;padding:8px;background:#fafbfc;min-height:60px;display:flex;align-items:center;justify-content:center"></div>
+          <button class="btn rojo mini" style="margin-top:8px" onclick="borrarFirmaTQ()">Borrar firma guardada</button>
+        </div>
+      </div>
     </div>
 
     <div class="cfg-card" style="grid-column:1/-1">
@@ -1161,7 +1185,7 @@ function normalizarDB(){
   db.cfg.TQ=db.cfg.TQ||{rz:'TERRA QUATTRO SRL',sub:'GWM',cuit:'',dir:'',tel:'',mail:''};
   db.cfg.ia=db.cfg.ia||'';
   db.cfg.categorias=db.cfg.categorias||['Alquiler','Sueldos','Servicios','Impuestos','Herramientas','Combustible','Seguros','Insumos','Honorarios'];
-  if(db.cfg.validez===undefined) db.cfg.validez=7; db.cfg.saludo=db.cfg.saludo||''; db.cfg.condiciones=db.cfg.condiciones||''; if(db.cfg.ivaDef===undefined) db.cfg.ivaDef=21; db.cfg.msgPlantilla=db.cfg.msgPlantilla||'';
+  if(db.cfg.validez===undefined) db.cfg.validez=7; db.cfg.saludo=db.cfg.saludo||''; db.cfg.condiciones=db.cfg.condiciones||''; if(db.cfg.ivaDef===undefined) db.cfg.ivaDef=21; db.cfg.msgPlantilla=db.cfg.msgPlantilla||''; db.cfg.firmaTQ=db.cfg.firmaTQ||''; if(db.cfg.firmaTQtexto===undefined) db.cfg.firmaTQtexto='Luciano Magnotti · CUIT 20-43872162-3';
   db.seq=db.seq||{AT:0,TQ:0};
 }
 normalizarDB();
@@ -1254,6 +1278,7 @@ function renderConfig(){
   const yr=$('cfgSyncResumen'); if(yr){ const c=syncCfg(); yr.innerHTML = (c&&c.taller)?('Conectado al taller: <b>'+esc(c.taller)+'</b>'):'Sin sincronizar todavía.'; }
   renderProveedoresCfg();
   pintarEnvioModo();
+  initFirmaCanvas(); renderFirmaTQ();
 }
 function renderProveedoresCfg(){
   const box=$('cfgProvLista'); if(!box) return;
@@ -1273,6 +1298,30 @@ function pintarEnvioModo(){
   const info=$('emInfo'); if(info) info.innerHTML = m==='auto'
     ? 'WhatsApp: aparece el menú <b>Compartir</b> y el PDF va <b>adjunto solo</b> (tocá WhatsApp ahí). El <b>e-mail siempre abre Gmail</b> y descarga el PDF para adjuntar.'
     : 'WhatsApp y e-mail van <b>derecho</b> a WhatsApp Web / Gmail (borrador listo) y te <b>descargan el PDF</b> para adjuntarlo con el clip 📎.';
+}
+let _firmaCtx=null, _firmaDibujando=false, _firmaVacia=true;
+function initFirmaCanvas(){
+  const c=$('firmaCanvas'); if(!c || c._init) return; c._init=true;
+  _firmaCtx=c.getContext('2d'); _firmaCtx.lineWidth=2.4; _firmaCtx.lineCap='round'; _firmaCtx.lineJoin='round'; _firmaCtx.strokeStyle='#111';
+  const pos=e=>{ const r=c.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return { x:(t.clientX-r.left)*(c.width/r.width), y:(t.clientY-r.top)*(c.height/r.height) }; };
+  const down=e=>{ e.preventDefault(); _firmaDibujando=true; _firmaVacia=false; const p=pos(e); _firmaCtx.beginPath(); _firmaCtx.moveTo(p.x,p.y); };
+  const move=e=>{ if(!_firmaDibujando) return; e.preventDefault(); const p=pos(e); _firmaCtx.lineTo(p.x,p.y); _firmaCtx.stroke(); };
+  const up=()=>{ _firmaDibujando=false; };
+  c.addEventListener('mousedown',down); c.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+  c.addEventListener('touchstart',down,{passive:false}); c.addEventListener('touchmove',move,{passive:false}); c.addEventListener('touchend',up);
+}
+function limpiarFirmaCanvas(){ initFirmaCanvas(); if(_firmaCtx){ _firmaCtx.clearRect(0,0,$('firmaCanvas').width,$('firmaCanvas').height); _firmaVacia=true; } }
+function guardarFirmaTQ(){
+  initFirmaCanvas();
+  if(_firmaVacia && !db.cfg.firmaTQ){ return toast('Dibujá la firma antes de guardar.'); }
+  if(!_firmaVacia){ db.cfg.firmaTQ=$('firmaCanvas').toDataURL('image/png'); }
+  db.cfg.firmaTQtexto=$('cfgFirmaTexto').value.trim();
+  guardar(); renderFirmaTQ(); toast('Firma de Terra Quattro guardada.');
+}
+function borrarFirmaTQ(){ db.cfg.firmaTQ=''; guardar(); limpiarFirmaCanvas(); renderFirmaTQ(); toast('Firma borrada.'); }
+function renderFirmaTQ(){
+  if($('cfgFirmaTexto')) $('cfgFirmaTexto').value=db.cfg.firmaTQtexto||'';
+  const pv=$('firmaPreview'); if(pv) pv.innerHTML = db.cfg.firmaTQ ? '<img src="'+db.cfg.firmaTQ+'" style="max-height:70px;max-width:100%">' : '<span style="color:var(--gris2);font-size:12px">Todavía no guardaste ninguna firma.</span>';
 }
 function restaurarMsg(){ if($('cfgMsg')){ $('cfgMsg').value=PLANTILLA_MSG_DEFAULT; toast('Cargué el mensaje por defecto. Editalo y guardá.'); } }
 function guardarCfgMensajes(){
@@ -1841,7 +1890,7 @@ function setVistaProv(v){
   renderProvs();
 }
 function toggleCC(id){ ccAbiertos.has(id)?ccAbiertos.delete(id):ccAbiertos.add(id); const el=document.getElementById(id); if(el) el.classList.toggle('abierto'); }
-function toggleArchCC(id){ const el=document.getElementById('arch_'+id); if(!el) return; el.hidden=!el.hidden; const b=document.getElementById('archbtn_'+id); if(b) b.textContent=(el.hidden?'Ver ':'Ocultar ')+b.dataset.n+' pagada'+(b.dataset.n!=='1'?'s':'')+' archivada'+(b.dataset.n!=='1'?'s':''); }
+function toggleArchCC(id){ const el=document.getElementById('arch_'+id); if(!el) return; el.hidden=!el.hidden; const b=document.getElementById('archbtn_'+id); if(b) b.textContent=(el.hidden?'Ver ':'Ocultar ')+b.dataset.n+' pagada'+(b.dataset.n!=='1'?'s':''); }
 function filaProvCC(p){
   const est = p.pagada ? ['Pagada','#0e8a5f','#e3f5ee'] : (p.venc&&p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
   return '<tr><td style="width:100px">'+fFecha(p.fecha)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td style="width:100px">'+fFecha(p.venc)+'</td><td class="num">'+money(p.total)+'</td>'+
@@ -1879,11 +1928,11 @@ function renderProvCC(){
       b.push('<button class="copiar" style="margin-left:auto" onclick="abrirProvReg(\''+reg.id+'\')">Editar datos</button>');
       bcard='<div class="bcard">'+b.join('')+'</div>';
     }
-    const arch = pagadas.length ? '<div style="padding:9px 16px;border-top:1px solid var(--borde)"><button class="btn fantasma mini" id="archbtn_'+gid+'" data-n="'+pagadas.length+'" onclick="event.stopPropagation();toggleArchCC(\''+gid+'\')">Ver '+pagadas.length+' pagada'+(pagadas.length!==1?'s':'')+' archivada'+(pagadas.length!==1?'s':'')+'</button><div id="arch_'+gid+'" hidden style="margin-top:8px"><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Vence</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead><tbody>'+pagadas.map(filaProvCC).join('')+'</tbody></table></div></div></div>' : '';
+    const arch = pagadas.length ? '<div style="padding:9px 16px;border-top:1px solid var(--borde)"><button class="btn fantasma mini" id="archbtn_'+gid+'" data-n="'+pagadas.length+'" onclick="event.stopPropagation();toggleArchCC(\''+gid+'\')">Ver '+pagadas.length+' pagada'+(pagadas.length!==1?'s':'')+'</button><div id="arch_'+gid+'" hidden style="margin-top:8px"><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Vence</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead><tbody>'+pagadas.map(filaProvCC).join('')+'</tbody></table></div></div></div>' : '';
     return '<div class="cli-grupo'+(ccAbiertos.has(gid)?' abierto':'')+'" id="'+gid+'">'+
       '<div class="cli-cab" onclick="toggleCC(\''+gid+'\')">'+
         '<div class="avatar" style="border-radius:9px">'+inic(k)+'</div>'+
-        '<div class="datos"><b>'+esc(k)+'</b><small>'+pend.length+' pendiente'+(pend.length!==1?'s':'')+(vencidas.length?' · '+vencidas.length+' vencida'+(vencidas.length!==1?'s':''):'')+(prox?' · próx. vence '+fFecha(prox):'')+(pagadas.length?' · '+pagadas.length+' archivada'+(pagadas.length!==1?'s':''):'')+'</small></div>'+
+        '<div class="datos"><b>'+esc(k)+'</b><small>'+pend.length+' pendiente'+(pend.length!==1?'s':'')+(vencidas.length?' · '+vencidas.length+' vencida'+(vencidas.length!==1?'s':''):'')+(prox?' · próx. vence '+fFecha(prox):'')+(pagadas.length?' · '+pagadas.length+' pagada'+(pagadas.length!==1?'s':''):'')+'</small></div>'+
         '<div class="mini-kpis"><span>Facturado<b>'+money(facturado)+'</b></span><span>Saldo adeudado<b style="color:'+(saldo>0?'var(--rojo)':'var(--ok)')+'">'+money(saldo)+'</b></span></div>'+
         '<span class="chev">▶</span>'+
       '</div>'+
@@ -1894,18 +1943,33 @@ function renderProvCC(){
 }
 let provFiltro='pend';
 function setProvFiltro(v){ provFiltro=v; ['pend','arch','todas'].forEach(x=>{ const b=$('pf'+(x==='pend'?'Pend':x==='arch'?'Arch':'Todas')); if(b) b.classList.toggle('on', x===v); }); renderProvs(); }
-function renderProvs(){
-  const todas = [...db.provs].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-  const nPend = todas.filter(p=>!p.pagada).length, nArch = todas.filter(p=>p.pagada).length;
-  const l = provFiltro==='arch' ? todas.filter(p=>p.pagada) : (provFiltro==='todas' ? todas : todas.filter(p=>!p.pagada));
-  if($('provFiltroInfo')) $('provFiltroInfo').textContent = nPend+' pendiente'+(nPend!==1?'s':'')+' · '+nArch+' archivada'+(nArch!==1?'s':'')+' (pagadas)';
-  $('tbProvs').innerHTML = l.length ? l.map(p=>{
-    const est = p.pagada ? ['Pagada','#0e8a5f','#e3f5ee'] : (p.venc && p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
-    const adj = p.adj ? '<span class="chip-adj" style="cursor:pointer" onclick="verAdjuntoProv(\''+p.id+'\')">📎 '+(p.adj.tipo==='pdf'?'PDF':'Foto')+'</span>' : '<span style="color:var(--gris2)">—</span>';
-    return '<tr><td><b>'+esc(p.nombre)+'</b></td><td>'+fFecha(p.fecha)+'</td><td>'+fFecha(p.venc)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td>'+adj+'</td><td class="num">'+(p.items?p.items.length:0)+'</td><td class="num">'+money(p.total)+'</td>'+
+function filaFactura(p){
+  const est = p.pagada ? ['Pagada','#0e8a5f','#e3f5ee'] : (p.venc && p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
+  const adj = p.adj ? '<span class="chip-adj" style="cursor:pointer" onclick="verAdjuntoProv(\''+p.id+'\')">📎 '+(p.adj.tipo==='pdf'?'PDF':'Foto')+'</span>' : '<span style="color:var(--gris2)">—</span>';
+  return '<tr><td><b>'+esc(p.nombre)+'</b></td><td>'+fFecha(p.fecha)+'</td><td>'+fFecha(p.venc)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td>'+adj+'</td><td class="num">'+(p.items?p.items.length:0)+'</td><td class="num">'+money(p.total)+'</td>'+
     '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
     '<td style="white-space:nowrap"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver detalle</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?'→ Pendiente':'✓ Pagada')+'</button></td></tr>';
-  }).join('') : '<tr><td colspan="9" class="vacio">'+(provFiltro==='arch'?'No hay facturas archivadas (pagadas) todavía.':(provFiltro==='pend'&&db.provs.length?'No tenés facturas pendientes. Mirá «Archivadas» o «Todas».':'Cargá la primera factura con el botón \'+ Nueva factura\'. Podés adjuntar la foto y dejar que la IA complete los datos.'))+'</td></tr>';
+}
+function renderProvs(){
+  const todas = [...db.provs].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const nPend = todas.filter(p=>!p.pagada).length, nPag = todas.filter(p=>p.pagada).length;
+  const l = provFiltro==='arch' ? todas.filter(p=>p.pagada) : (provFiltro==='todas' ? todas : todas.filter(p=>!p.pagada));
+  if($('provFiltroInfo')) $('provFiltroInfo').textContent = nPend+' pendiente'+(nPend!==1?'s':'')+' · '+nPag+' pagada'+(nPag!==1?'s':'');
+  let filas;
+  if(provFiltro==='arch'){
+    // Pagadas: agrupadas por proveedor, con subtotal
+    const g={}; l.forEach(p=>{ const k=(p.nombre||'—').trim()||'—'; (g[k]=g[k]||[]).push(p); });
+    const claves=Object.keys(g).sort((a,b)=>a.localeCompare(b));
+    filas = claves.map(k=>{
+      const arr=g[k].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+      const tot=arr.reduce((a,p)=>a+(p.total||0),0);
+      return '<tr style="background:#f4f5f7"><td colspan="6" style="font-weight:800">'+esc(k)+' <span style="color:var(--gris2);font-weight:600;font-size:12px">· '+arr.length+' factura'+(arr.length!==1?'s':'')+'</span></td><td class="num" style="font-weight:800">'+money(tot)+'</td><td colspan="2"></td></tr>'+
+        arr.map(filaFactura).join('');
+    }).join('');
+  } else {
+    filas = l.map(filaFactura).join('');
+  }
+  $('tbProvs').innerHTML = l.length ? filas : '<tr><td colspan="9" class="vacio">'+(provFiltro==='arch'?'No hay facturas pagadas todavía.':(provFiltro==='pend'&&db.provs.length?'No tenés facturas pendientes. Mirá «Pagadas» o «Todas».':'Cargá la primera factura con el botón \'+ Nueva factura\'. Podés adjuntar la foto y dejar que la IA complete los datos.'))+'</td></tr>';
   if($('boxProvFact')) $('boxProvFact').hidden = vistaProv!=='facturas';
   if($('boxProvCC')) $('boxProvCC').hidden = vistaProv!=='cc';
   renderProvCC();
@@ -2175,7 +2239,8 @@ function guardarTurno(){
 function borrarTurno(){ if(turnoEdit && confirm('¿Eliminar el turno?')){ db.turnos=db.turnos.filter(t=>t.id!==turnoEdit.id); guardar(); render(); cerrar('vTurno'); } }
 
 /* ================= LIBRO CONTABLE ================= */
-let socConta = '';
+let socConta = '', contaMedio = '';
+function setContaMedio(v){ contaMedio=v; ['cmTodos','cmBanco','cmEfectivo'].forEach(x=>{ const b=$(x); if(b) b.classList.toggle('on', (x==='cmTodos'&&v==='')||(x==='cmBanco'&&v==='Banco')||(x==='cmEfectivo'&&v==='Efectivo')); }); renderConta(); }
 let ctInit = false;
 function setSocConta(s){
   socConta = s;
@@ -2223,7 +2288,9 @@ function chartFlujo(meses){
 function renderConta(){
   if(!ctInit){ ctInit = true; const r = rangoLapso('mes'); $('ctDesde').value=r[0]; $('ctHasta').value=r[1]; $('ctFecha').value=hoy(); }
   const d0=$('ctDesde').value, d1=$('ctHasta').value;
-  const l = movimientosConta(d0,d1,socConta);
+  let l = movimientosConta(d0,d1,socConta);
+  if(contaMedio){ l = l.filter(m=>m.medio===contaMedio); }
+  { const inB=l.filter(m=>m.medio==='Banco'&&m.tipo==='Ingreso').reduce((a,m)=>a+m.monto,0)-l.filter(m=>m.medio==='Banco'&&m.tipo!=='Ingreso').reduce((a,m)=>a+m.monto,0); const inE=l.filter(m=>m.medio==='Efectivo'&&m.tipo==='Ingreso').reduce((a,m)=>a+m.monto,0)-l.filter(m=>m.medio==='Efectivo'&&m.tipo!=='Ingreso').reduce((a,m)=>a+m.monto,0); if($('ctMedioInfo')) $('ctMedioInfo').innerHTML = contaMedio ? ('Mostrando solo <b>'+contaMedio+'</b>') : ('Neto Banco: <b>'+money(inB)+'</b> · Neto Efectivo: <b>'+money(inE)+'</b>'); }
   const ing = l.filter(m=>m.tipo==='Ingreso').reduce((a,m)=>a+m.monto,0);
   const egr = l.filter(m=>m.tipo!=='Ingreso').reduce((a,m)=>a+m.monto,0);
   const res = ing-egr;
@@ -2528,6 +2595,8 @@ function imprimirOT(modo){
 }
 function armarHoja(o, modo){
   const cfg = db.cfg[o.soc], logo = o.soc==='AT' ? LOGO_AT : LOGO_TQ;
+  const docTit = o.soc==='AT' ? 'TRABAJOS REALIZADOS' : 'PRESUPUESTO';
+  const docTitCap = o.soc==='AT' ? 'Trabajos realizados' : 'Presupuesto';
   const t = totalesOT(o), rep = ventaRepuestos(o);
   const veh =
     '<div class="h-veh">'+
@@ -2563,7 +2632,7 @@ function armarHoja(o, modo){
   const metaCliente =
     '<div class="h-meta">'+
     '<div><span>Fecha de emisión</span><b>'+fFecha(o.fecha)+'</b></div>'+
-    '<div><span>Validez</span><b>7 días</b></div>'+
+    (o.soc==='AT'?'':'<div><span>Validez</span><b>7 días</b></div>')+
     '<div><span>Dominio</span><b>'+esc(o.dominio||'—')+'</b></div>'+
     '<div><span>Documento</span><b>N° '+esc(o.numero)+'</b></div>'+
     '</div>';
@@ -2572,7 +2641,7 @@ function armarHoja(o, modo){
     demoMarca + marca +
     '<div class="h-top"><div class="h-logo"><img src="'+logo+'" alt=""><div class="rz">'+esc(cfg.rz)+'<small>'+esc(cfg.sub)+(cfg.cuit?' · CUIT '+esc(cfg.cuit):'')+'</small>'+
     (cfg.dir?'<small style="letter-spacing:.02em;text-transform:none">'+esc(cfg.dir)+(cfg.tel?' · Tel. '+esc(cfg.tel):'')+'</small>':'')+'</div></div>'+
-    '<div class="h-tit"><div class="p">'+(modo==='cliente'?'PRESUPUESTO':'ORDEN DE TRABAJO')+'</div><div class="nro">N° '+esc(o.numero)+'</div></div></div>'+
+    '<div class="h-tit"><div class="p"'+(o.soc==='AT'&&modo==='cliente'?' style="font-size:20px;letter-spacing:.05em"':'')+'>'+(modo==='cliente'?docTit:'ORDEN DE TRABAJO')+'</div><div class="nro">N° '+esc(o.numero)+'</div></div></div>'+
     (modo==='cliente' ? metaCliente : '')+
     '<div class="h-info"><div><h4>Cliente</h4><div class="cli">'+esc(o.cliente||'—')+'</div><div style="font-size:12px;color:#555;margin-top:3px">'+esc(o.celu?('Cel: '+o.celu):'')+(o.email?' · '+esc(o.email):'')+'</div></div>'+
     '<div class="der"><h4>Emisión</h4>Buenos Aires, '+fFecha(o.fecha)+'</div></div>'+
@@ -2582,12 +2651,14 @@ function armarHoja(o, modo){
     '<div class="h-pie"><div class="der"><h4>Contacto</h4>'+esc(cfg.dir||'')+(cfg.dir?'<br>':'')+esc(cfg.tel||'')+(cfg.tel?'<br>':'')+esc(cfg.mail||'')+'</div></div>'+
     (modo==='cliente' ?
       ((db.cfg.condiciones&&db.cfg.condiciones.trim()) ? '<div style="margin-top:16px;font-size:10.5px;color:#555;line-height:1.5"><b>Condiciones:</b> '+esc(db.cfg.condiciones.trim())+'</div>' : '')+
-      '<div class="h-firmas">'+
-      '<div class="lin"><b>Por '+esc(cfg.rz)+'</b>Firma y aclaración del responsable</div>'+
-      '<div class="lin"><b>Conformidad del cliente</b>Firma, aclaración y DNI</div>'+
-      '</div>'+
-      '<div class="h-legal">'+esc(cfg.rz)+(cfg.cuit?' · CUIT '+esc(cfg.cuit):'')+' — Presupuesto N° '+esc(o.numero)+' emitido el '+fFecha(o.fecha)+'. Documento no válido como factura.</div>'
+      (o.soc==='AT' ? '' :
+        '<div class="h-firmas">'+
+        '<div class="fcol">'+(db.cfg.firmaTQ?'<img class="firma-img" src="'+db.cfg.firmaTQ+'">':'')+'<div class="lin"><b>Por '+esc(cfg.rz)+'</b>'+esc(db.cfg.firmaTQtexto||'Firma y aclaración del responsable')+'</div></div>'+
+        '<div class="fcol"><div class="lin"><b>Conformidad del cliente</b>Firma, aclaración y DNI</div></div>'+
+        '</div>')+
+      '<div class="h-legal">'+esc(cfg.rz)+(cfg.cuit?' · CUIT '+esc(cfg.cuit):'')+' — '+docTitCap+' N° '+esc(o.numero)+' emitido el '+fFecha(o.fecha)+'. Documento no válido como factura.</div>'
       : '');
+  $('hoja').style.setProperty('--acc', o.soc==='AT' ? '#c2372e' : '#8f1a17');
 }
 
 /* ================= INIT ================= */
