@@ -603,6 +603,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <div class="f"><label>Fecha</label><input type="date" id="ctFecha"></div>
       <div class="f"><label>Sociedad</label><select id="ctSocSel"><option value="AT">All Terrain</option><option value="TQ">Terra Quattro</option></select></div>
       <div class="f"><label>Tipo</label><select id="ctTipo"><option>Ingreso</option><option>Egreso</option><option>Otro costo</option></select></div>
+      <div class="f"><label>Medio</label><select id="ctMedio"><option>Banco</option><option>Efectivo</option></select></div>
       <div class="f"><label>Categoría</label><input id="ctCat" list="dlCats" placeholder="Alquiler, sueldos…"></div>
       <datalist id="dlCats"><option>Alquiler</option><option>Sueldos</option><option>Servicios</option><option>Impuestos</option><option>Herramientas</option><option>Combustible</option><option>Seguros</option><option>Insumos</option><option>Honorarios</option></datalist>
       <div class="f crecer"><label>Detalle</label><input id="ctDet" placeholder="Alquiler del galpón — julio"></div>
@@ -613,7 +614,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 
   <div class="panelbox"><div class="scrollx">
     <table>
-      <thead><tr><th>Fecha</th><th>Sociedad</th><th>Tipo</th><th>Categoría</th><th>Detalle</th><th>Origen</th><th class="num">Monto</th><th class="num">Saldo</th><th></th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Sociedad</th><th>Tipo</th><th>Medio</th><th>Categoría</th><th>Detalle</th><th>Origen</th><th class="num">Monto</th><th class="num">Saldo</th><th></th></tr></thead>
       <tbody id="tbConta"></tbody>
     </table>
   </div></div>
@@ -2192,9 +2193,9 @@ function aplicarLapsoConta(){
 }
 function movimientosConta(d0,d1,soc){
   const l = [];
-  db.pagos.forEach(p=>l.push({ f:p.f, soc:socDe(p.ot), tipo:'Ingreso', cat:'Cobro de orden', det:p.ot+' · '+p.cliente+' ('+p.medio+')', origen:'Facturación', monto:p.monto }));
-  db.provs.forEach(p=>l.push({ f:p.fecha, soc:p.soc||'', tipo:'Egreso', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:p.total }));
-  db.conta.forEach(c=>l.push({ id:c.id, f:c.f, soc:c.soc||'', tipo:c.tipo, cat:c.cat, det:c.det, origen:'Manual', monto:c.monto }));
+  db.pagos.forEach(p=>l.push({ f:p.f, soc:socDe(p.ot), tipo:'Ingreso', medio:p.medio||'', cat:'Cobro de orden', det:p.ot+' · '+p.cliente+' ('+p.medio+')', origen:'Facturación', monto:p.monto }));
+  db.provs.forEach(p=>l.push({ f:p.fecha, soc:p.soc||'', tipo:'Egreso', medio:'', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:p.total }));
+  db.conta.forEach(c=>l.push({ id:c.id, f:c.f, soc:c.soc||'', tipo:c.tipo, medio:c.medio||'', cat:c.cat, det:c.det, origen:'Manual', monto:c.monto }));
   return l.filter(m=>(!d0 || (m.f||'')>=d0) && (!d1 || (m.f||'')<=d1) && (!soc || m.soc===soc))
           .sort((a,b)=>(b.f||'').localeCompare(a.f||''));
 }
@@ -2290,11 +2291,12 @@ function renderConta(){
   const color = { 'Ingreso':['#0e8a5f','#e3f5ee'], 'Egreso':['#c2372e','#fbe9e7'], 'Otro costo':['#a16207','#fdf1d7'] };
   $('tbConta').innerHTML = l.length ? l.map(m=>{
     const c = color[m.tipo]||color['Otro costo'];
-    return '<tr><td>'+fFecha(m.f)+'</td><td style="font-size:12px;font-weight:600;color:var(--gris)">'+(m.soc?socNombre[m.soc]:'—')+'</td><td><span class="chip sin" style="color:'+c[0]+';background:'+c[1]+'">'+m.tipo+'</span></td><td>'+esc(m.cat)+'</td><td>'+esc(m.det)+'</td><td style="color:var(--gris2);font-size:12px">'+m.origen+'</td>'+
+    const mColor = m.medio==='Efectivo' ? ['#0e8a5f','#e3f5ee'] : (m.medio==='Banco' ? ['#1c4fd6','#e7edfd'] : ['#8b93a1','#eceef2']);
+    return '<tr><td>'+fFecha(m.f)+'</td><td style="font-size:12px;font-weight:600;color:var(--gris)">'+(m.soc?socNombre[m.soc]:'—')+'</td><td><span class="chip sin" style="color:'+c[0]+';background:'+c[1]+'">'+m.tipo+'</span></td><td>'+(m.medio?'<span class="chip sin" style="color:'+mColor[0]+';background:'+mColor[1]+'">'+esc(m.medio)+'</span>':'<span style="color:var(--gris2)">—</span>')+'</td><td>'+esc(m.cat)+'</td><td>'+esc(m.det)+'</td><td style="color:var(--gris2);font-size:12px">'+m.origen+'</td>'+
     '<td class="num" style="color:'+(m.tipo==='Ingreso'?'var(--ok)':'var(--rojo)')+';font-weight:600">'+(m.tipo==='Ingreso'?'+':'−')+money(m.monto).slice(1)+'</td>'+
     '<td class="num" style="font-weight:700;color:'+(m.saldo>=0?'var(--tinta)':'var(--rojo)')+'">'+money(m.saldo)+'</td>'+
     '<td style="white-space:nowrap">'+(m.origen==='Manual'?'<button class="btn blanco mini" onclick="editarConta(\''+m.id+'\')">Editar</button> <button class="btn rojo mini" onclick="borrarConta(\''+m.id+'\')">Eliminar</button>':'')+'</td></tr>';
-  }).join('') : '<tr><td colspan="9" class="vacio">Sin movimientos en el período. Los cobros de órdenes y las facturas de proveedor entran solos; lo demás lo cargás con el formulario.</td></tr>';
+  }).join('') : '<tr><td colspan="10" class="vacio">Sin movimientos en el período. Los cobros de órdenes y las facturas de proveedor entran solos; lo demás lo cargás con el formulario.</td></tr>';
 }
 function llenarCats(){ if($('dlCats')) $('dlCats').innerHTML = (db.cfg.categorias||[]).map(c=>'<option>'+esc(c)+'</option>').join(''); }
 function abrirCats(){ pintarCats(); $('vCats').classList.add('on'); }
@@ -2310,14 +2312,14 @@ function editarConta(id){
   const m=db.conta.find(c=>c.id===id); if(!m) return;
   contaEditId=id;
   $('ctFecha').value=m.f||hoy(); $('ctSocSel').value=m.soc||'AT'; $('ctTipo').value=m.tipo||'Ingreso';
-  $('ctCat').value=m.cat||''; $('ctDet').value=m.det||''; $('ctMonto').value=m.monto||0;
+  $('ctCat').value=m.cat||''; $('ctDet').value=m.det||''; $('ctMonto').value=m.monto||0; $('ctMedio').value=m.medio||'Banco';
   $('ctRegBtn').textContent='Guardar cambios';
   irTab('contable');
   toast('Editando movimiento. Modificá y tocá "Guardar cambios".');
 }
 function agregarConta(){
   if(!+$('ctMonto').value) return toast('Falta el monto.');
-  const datos={ f:$('ctFecha').value||hoy(), soc:$('ctSocSel').value, tipo:$('ctTipo').value, cat:$('ctCat').value.trim()||'General', det:$('ctDet').value.trim(), monto:+$('ctMonto').value };
+  const datos={ f:$('ctFecha').value||hoy(), soc:$('ctSocSel').value, tipo:$('ctTipo').value, medio:$('ctMedio').value, cat:$('ctCat').value.trim()||'General', det:$('ctDet').value.trim(), monto:+$('ctMonto').value };
   if(contaEditId){
     const m=db.conta.find(c=>c.id===contaEditId); if(m) Object.assign(m, datos);
     contaEditId=null; $('ctRegBtn').textContent='+ Registrar';
@@ -2626,16 +2628,32 @@ function syncPush(){
   if(!fbDoc || aplicandoRemoto) return;
   clearTimeout(pushTimer); pushTimer=setTimeout(pushNow, 700);
 }
+let fbUnsub=null, reconTimer=null, syncListenersOn=false;
+function reconectarSync(){
+  const cfg=syncCfg()||{};
+  if(!cfg.taller) return;
+  if(fbUnsub){ try{ fbUnsub(); }catch(e){} fbUnsub=null; }
+  initSync();
+}
+function armarListenersSync(){
+  if(syncListenersOn) return; syncListenersOn=true;
+  // Reconectar cuando vuelve internet o cuando volvés a la pestaña — así queda SIEMPRE sincronizado
+  window.addEventListener('online', ()=>{ const c=syncCfg(); if(c&&c.taller) reconectarSync(); });
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ const c=syncCfg(); if(c&&c.taller && syncEstado!=='on') reconectarSync(); } });
+  // Latido de seguridad: cada 30s, si está configurado pero caído, reintenta
+  setInterval(()=>{ const c=syncCfg(); if(c&&c.taller && (syncEstado==='error'||syncEstado==='off') && navigator.onLine!==false) reconectarSync(); }, 30000);
+}
 function initSync(){
   const cfg=syncCfg()||{};
   const fb = cfg.firebase || FIREBASE_EMBED;
+  armarListenersSync();
   if(!cfg.taller){ setSyncEstado('off'); setTimeout(()=>{ const c=syncCfg(); if((!c||!c.taller) && !hayModalAbierto()) abrirSync(); }, 500); return; }
   if(typeof firebase==='undefined'){ setSyncEstado('error'); return; }
   try{
     if(!firebase.apps.length) firebase.initializeApp(fb);
     fbDoc=firebase.firestore().collection('talleres').doc(cfg.taller);
     setSyncEstado('connecting');
-    fbDoc.onSnapshot(snap=>{
+    fbUnsub=fbDoc.onSnapshot(snap=>{
       if(!snap.exists){ pushNow(); setSyncEstado('on'); return; }
       const data=snap.data();
       if(data._client===myClientId || !data.db){ setSyncEstado('on'); return; }
@@ -2650,7 +2668,7 @@ function initSync(){
       aplicandoRemoto=false;
       if(hayModalAbierto()) pendienteRender=true; else render();
       setSyncEstado('on');
-    }, err=>{ console.error('sync', err); setSyncEstado('error'); });
+    }, err=>{ console.error('sync', err); setSyncEstado('error'); clearTimeout(reconTimer); reconTimer=setTimeout(reconectarSync, 4000); });
   }catch(e){ console.error('sync init', e); setSyncEstado('error'); }
 }
 function abrirSync(){
