@@ -2616,8 +2616,8 @@ function imprimirOT(modo){
 }
 function armarHoja(o, modo){
   const cfg = db.cfg[o.soc], logo = o.soc==='AT' ? LOGO_AT : LOGO_TQ;
-  const docTit = o.soc==='AT' ? 'TRABAJOS REALIZADOS' : 'PRESUPUESTO';
-  const docTitCap = o.soc==='AT' ? 'Trabajos realizados' : 'Presupuesto';
+  const docTit = 'ORDEN DE TRABAJO';
+  const docTitCap = 'Orden de trabajo';
   const t = totalesOT(o), rep = ventaRepuestos(o);
   const veh =
     '<div class="h-veh">'+
@@ -2662,7 +2662,7 @@ function armarHoja(o, modo){
     demoMarca + marca +
     '<div class="h-top"><div class="h-logo"><img src="'+logo+'" alt=""><div class="rz">'+esc(cfg.rz)+'<small>'+esc(cfg.sub)+(cfg.cuit?' · CUIT '+esc(cfg.cuit):'')+'</small>'+
     (cfg.dir?'<small style="letter-spacing:.02em;text-transform:none">'+esc(cfg.dir)+(cfg.tel?' · Tel. '+esc(cfg.tel):'')+'</small>':'')+'</div></div>'+
-    '<div class="h-tit"><div class="p"'+(o.soc==='AT'&&modo==='cliente'?' style="font-size:20px;letter-spacing:.05em"':'')+'>'+(modo==='cliente'?docTit:'ORDEN DE TRABAJO')+'</div><div class="nro">N° '+esc(o.numero)+'</div></div></div>'+
+    '<div class="h-tit"><div class="p"'+(modo==='cliente'?' style="font-size:22px;letter-spacing:.04em"':'')+'>'+(modo==='cliente'?docTit:'ORDEN DE TRABAJO')+'</div><div class="nro">N° '+esc(o.numero)+'</div></div></div>'+
     (modo==='cliente' ? metaCliente : '')+
     '<div class="h-info"><div><h4>Cliente</h4><div class="cli">'+esc(o.cliente||'—')+'</div><div style="font-size:12px;color:#555;margin-top:3px">'+esc(o.celu?('Cel: '+o.celu):'')+(o.email?' · '+esc(o.email):'')+'</div></div>'+
     '<div class="der"><h4>Emisión</h4>Buenos Aires, '+fFecha(o.fecha)+'</div></div>'+
