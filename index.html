@@ -490,6 +490,24 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
     </div></div>
   <div class="kpis" id="factKpis"></div>
 
+  <div class="panelbox" id="boxPreentregas" style="margin-bottom:18px">
+    <div class="cab-box" style="flex-wrap:wrap;gap:8px"><div><h3>Preentregas y cobros por fuera</h3><span style="display:block;font-size:11px;color:var(--gris2);margin-top:1px;font-weight:500">Trabajos sin cliente (0km a entregar, etc.) que facturás aparte. Al marcarlos cobrados entran al libro contable.</span></div><div id="prePendTot" style="font-family:var(--mono);font-weight:700;color:var(--rojo)"></div></div>
+    <div style="padding:12px 18px 4px">
+      <div class="toolbar" style="margin:0">
+        <div class="f"><label>Fecha</label><input type="date" id="peFecha"></div>
+        <div class="f"><label>Sociedad</label><select id="peSoc"><option value="AT">All Terrain</option><option value="TQ">Terra Quattro</option></select></div>
+        <div class="f crecer"><label>Detalle</label><input id="peDet" placeholder="Preentrega Toyota Hilux 0km — dominio AB-123-CD"></div>
+        <div class="f"><label>N° factura</label><input id="peFactura" placeholder="A-0001-…" style="font-family:var(--mono)"></div>
+        <div class="f"><label>Monto</label><input type="number" id="peMonto" min="0" placeholder="0"></div>
+        <button class="btn" id="peBtn" onclick="agregarPreentrega()">+ Registrar</button>
+      </div>
+    </div>
+    <div class="scrollx"><table>
+      <thead><tr><th>Fecha</th><th>Sociedad</th><th>Detalle</th><th>Factura</th><th class="num">Monto</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tbPreentregas"></tbody>
+    </table></div>
+  </div>
+
   <div class="panelbox" id="boxAging" style="margin-bottom:18px" hidden>
     <div class="cab-box"><h3>Antigüedad de cuentas por cobrar</h3><span style="font-size:11px;color:var(--gris2);font-weight:500">Cuánto hace que cada orden entregada espera el pago</span></div>
     <div id="agingBody" style="padding:14px 18px 16px"></div>
@@ -721,6 +739,17 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
     </div>
 
     <div class="cfg-card" style="grid-column:1/-1">
+      <h3><span class="ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>Plantillas de mano de obra</h3>
+      <p>Guardá los tipos de trabajo que hacés seguido (ej: <b>Service</b>) con su texto ya redactado. En la orden lo elegís de una lista y se completa solo el detalle.</p>
+      <div class="grid2" style="gap:12px;align-items:end">
+        <div class="campo" style="margin:0"><label>Nombre (ej: Service 10.000 km)</label><input id="moNombre" placeholder="Service"></div>
+        <div class="campo" style="margin:0"><label></label><button class="btn" style="width:100%" onclick="agregarMOPreset()">+ Agregar plantilla</button></div>
+      </div>
+      <div class="campo" style="margin:10px 0 0"><label>Texto que se imprime en el presupuesto</label><textarea id="moTexto" style="min-height:70px" placeholder="Cambio de aceite y filtro, revisión de niveles, control de frenos y suspensión."></textarea></div>
+      <div id="moPresetsLista" style="margin-top:14px"></div>
+    </div>
+
+    <div class="cfg-card" style="grid-column:1/-1">
       <h3><span class="ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>Proveedores registrados</h3>
       <p>Guardá nombre, CUIT y datos bancarios (CBU/alias). Al cargar una factura, escribí el nombre y se vincula solo — y podés copiar el CBU para pagar más rápido.</p>
       <div id="cfgProvLista"></div>
@@ -812,6 +841,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Mano de obra</h4>
         <div style="display:grid;grid-template-columns:1fr 300px;gap:12px;align-items:start">
           <div class="campo" style="margin:0"><label>Detalle (se imprime en el presupuesto del cliente)</label>
+          <select id="otMOtipo" onchange="aplicarMOtipo()" style="margin-bottom:7px"><option value="">— Plantilla de mano de obra (opcional) —</option></select>
           <textarea id="otMOdet" rows="3" style="height:100%;min-height:74px" placeholder="Control y desarme del tren delantero, suspensión y dirección…"></textarea></div>
           <div>
             <div class="campo" style="margin:0"><label>Precio mano de obra</label><input type="number" id="otMOprecio" min="0" value="0" oninput="calcOT()"><small style="display:block;color:var(--gris2);font-size:10.5px;margin-top:4px">Es el mismo valor en la orden interna y en el presupuesto del cliente.</small></div>
@@ -1180,13 +1210,13 @@ if(!db){
 }
 function normalizarDB(){
   db.ots=db.ots||[]; db.provs=db.provs||[]; db.inv=db.inv||[]; db.movs=db.movs||[];
-  db.pagos=db.pagos||[]; db.facturas=db.facturas||[]; db.turnos=db.turnos||[]; db.conta=db.conta||[]; db.proveedores=db.proveedores||[];
+  db.pagos=db.pagos||[]; db.facturas=db.facturas||[]; db.turnos=db.turnos||[]; db.conta=db.conta||[]; db.proveedores=db.proveedores||[]; db.preentregas=db.preentregas||[];
   db.clientes=db.clientes||[]; db.tareas=db.tareas||[]; db.provPagos=db.provPagos||[];
   db.cfg=db.cfg||{}; db.cfg.AT=db.cfg.AT||{rz:'ALL TERRAIN SRL',sub:'4X4 SERVICE · EST. 1991',cuit:'',dir:'',tel:'',mail:''};
   db.cfg.TQ=db.cfg.TQ||{rz:'TERRA QUATTRO SRL',sub:'GWM',cuit:'',dir:'',tel:'',mail:''};
   db.cfg.ia=db.cfg.ia||'';
   db.cfg.categorias=db.cfg.categorias||['Alquiler','Sueldos','Servicios','Impuestos','Herramientas','Combustible','Seguros','Insumos','Honorarios'];
-  if(db.cfg.validez===undefined) db.cfg.validez=7; db.cfg.saludo=db.cfg.saludo||''; db.cfg.condiciones=db.cfg.condiciones||''; if(db.cfg.ivaDef===undefined) db.cfg.ivaDef=21; db.cfg.msgPlantilla=db.cfg.msgPlantilla||''; db.cfg.firmaTQ=db.cfg.firmaTQ||''; if(db.cfg.firmaTQtexto===undefined) db.cfg.firmaTQtexto='Luciano Magnotti · CUIT 20-43872162-3';
+  if(db.cfg.validez===undefined) db.cfg.validez=7; db.cfg.saludo=db.cfg.saludo||''; db.cfg.condiciones=db.cfg.condiciones||''; if(db.cfg.ivaDef===undefined) db.cfg.ivaDef=21; db.cfg.msgPlantilla=db.cfg.msgPlantilla||''; db.cfg.firmaTQ=db.cfg.firmaTQ||''; db.cfg.moPresets=db.cfg.moPresets||[]; if(db.cfg.firmaTQtexto===undefined) db.cfg.firmaTQtexto='Luciano Magnotti · CUIT 20-43872162-3';
   db.seq=db.seq||{AT:0,TQ:0};
 }
 normalizarDB();
@@ -1280,6 +1310,7 @@ function renderConfig(){
   renderProveedoresCfg();
   pintarEnvioModo();
   initFirmaCanvas(); renderFirmaTQ();
+  renderMOPresets();
 }
 function renderProveedoresCfg(){
   const box=$('cfgProvLista'); if(!box) return;
@@ -1343,6 +1374,34 @@ function borrarFirmaTQ(){ db.cfg.firmaTQ=''; guardar(); limpiarFirmaCanvas(); re
 function renderFirmaTQ(){
   if($('cfgFirmaTexto')) $('cfgFirmaTexto').value=db.cfg.firmaTQtexto||'';
   const pv=$('firmaPreview'); if(pv) pv.innerHTML = db.cfg.firmaTQ ? '<img src="'+db.cfg.firmaTQ+'" style="max-height:70px;max-width:100%">' : '<span style="color:var(--gris2);font-size:12px">Todavía no guardaste ninguna firma.</span>';
+}
+function renderMOPresets(){
+  const box=$('moPresetsLista'); if(!box) return;
+  const l=db.cfg.moPresets||[];
+  box.innerHTML = l.length ? l.map((m,i)=>'<div class="prov-fila"><div class="datos"><b>'+esc(m.nombre)+'</b><small>'+esc((m.texto||'').slice(0,120))+((m.texto||'').length>120?'…':'')+'</small></div><button class="btn blanco mini" onclick="editarMOPreset('+i+')">Editar</button> <button class="btn rojo mini" onclick="borrarMOPreset('+i+')">Eliminar</button></div>').join('') : '<div class="vacio" style="padding:16px;text-align:center;color:var(--gris2)">Todavía no cargaste plantillas de mano de obra.</div>';
+}
+let moPresetEdit=-1;
+function agregarMOPreset(){
+  const nombre=$('moNombre').value.trim(), texto=$('moTexto').value.trim();
+  if(!nombre) return toast('Ponele un nombre a la plantilla.');
+  db.cfg.moPresets=db.cfg.moPresets||[];
+  if(moPresetEdit>=0){ db.cfg.moPresets[moPresetEdit]={nombre,texto}; moPresetEdit=-1; }
+  else db.cfg.moPresets.push({nombre,texto});
+  $('moNombre').value=''; $('moTexto').value='';
+  guardar(); renderMOPresets(); toast('Plantilla guardada.');
+}
+function editarMOPreset(i){ const m=db.cfg.moPresets[i]; if(!m) return; moPresetEdit=i; $('moNombre').value=m.nombre||''; $('moTexto').value=m.texto||''; $('moNombre').focus(); }
+function borrarMOPreset(i){ db.cfg.moPresets.splice(i,1); moPresetEdit=-1; guardar(); renderMOPresets(); }
+function fillMOtipos(){
+  const sel=$('otMOtipo'); if(!sel) return;
+  sel.innerHTML='<option value="">— Plantilla de mano de obra (opcional) —</option>'+(db.cfg.moPresets||[]).map((m,i)=>'<option value="'+i+'">'+esc(m.nombre)+'</option>').join('');
+}
+function aplicarMOtipo(){
+  const v=$('otMOtipo').value; if(v===''){ return; }
+  const m=(db.cfg.moPresets||[])[+v]; if(!m) return;
+  const cur=$('otMOdet').value.trim();
+  if(cur && cur!==m.texto && !confirm('¿Reemplazar el detalle actual por la plantilla «'+m.nombre+'»?')){ $('otMOtipo').value=''; return; }
+  $('otMOdet').value=m.texto||'';
 }
 function restaurarMsg(){ if($('cfgMsg')){ $('cfgMsg').value=PLANTILLA_MSG_DEFAULT; toast('Cargué el mensaje por defecto. Editalo y guardá.'); } }
 function guardarCfgMensajes(){
@@ -1623,7 +1682,7 @@ function abrirOT(id){
   $('otCliente').value = o.cliente||''; $('otCelu').value = o.celu||''; $('otEmail').value = o.email||'';
   $('otVeh').value = o.veh||''; $('otDominio').value = o.dominio||''; $('otKm').value = o.km||'';
   $('otChasis').value = o.chasis||''; $('otMotor').value = o.motor||'';
-  $('otMOdet').value = o.moDet||''; $('otMOprecio').value = o.moPrecio||0;
+  fillMOtipos(); if($('otMOtipo')) $('otMOtipo').value=''; $('otMOdet').value = o.moDet||''; $('otMOprecio').value = o.moPrecio||0;
   $('otRepVenta').value = (o.repVenta!==undefined && o.repVenta!==null && o.repVenta!=='') ? o.repVenta : (o.items||[]).reduce((a,i)=>a+(i.cant||0)*(i.precio||0),0);
   $('otItems').innerHTML = '';
   (o.items && o.items.length ? o.items : [null]).forEach(agregarItem);
@@ -2055,7 +2114,42 @@ function setSocFact(s){
   $('fsTQ').classList.toggle('on', s==='TQ');
   renderFact();
 }
+let preEditId=null;
+function agregarPreentrega(){
+  const monto=+$('peMonto').value||0, det=$('peDet').value.trim();
+  if(!monto) return toast('Falta el monto.');
+  if(!det) return toast('Poné un detalle (qué trabajo/vehículo es).');
+  const d={ f:$('peFecha').value||hoy(), soc:$('peSoc').value, det, factura:$('peFactura').value.trim(), monto };
+  db.preentregas=db.preentregas||[];
+  if(preEditId){ const x=db.preentregas.find(p=>p.id===preEditId); if(x) Object.assign(x,d); preEditId=null; $('peBtn').textContent='+ Registrar'; }
+  else { d.id=uid(); d.cobrado=false; db.preentregas.push(d); }
+  ['peDet','peFactura','peMonto'].forEach(i=>$(i).value='');
+  guardar(); renderPreentregas(); toast('Preentrega registrada.');
+}
+function editarPreentrega(id){ const p=db.preentregas.find(x=>x.id===id); if(!p) return; preEditId=id; $('peFecha').value=p.f||hoy(); $('peSoc').value=p.soc||'AT'; $('peDet').value=p.det||''; $('peFactura').value=p.factura||''; $('peMonto').value=p.monto||0; $('peBtn').textContent='Guardar cambios'; }
+function toggleCobradoPre(id){
+  const p=db.preentregas.find(x=>x.id===id); if(!p) return;
+  if(!p.cobrado){ p.medio = confirm('¿El cobro fue por BANCO/transferencia?\n\nAceptar = Banco   ·   Cancelar = Efectivo') ? 'Banco' : 'Efectivo'; p.cobrado=true; p.fcobro=hoy(); }
+  else { p.cobrado=false; p.fcobro=''; p.medio=''; }
+  guardar(); renderPreentregas(); render();
+}
+function borrarPreentrega(id){ if(!confirm('¿Eliminar esta preentrega?')) return; db.preentregas=db.preentregas.filter(p=>p.id!==id); guardar(); renderPreentregas(); }
+function renderPreentregas(){
+  if(!$('tbPreentregas')) return;
+  if(!$('peFecha').value) $('peFecha').value=hoy();
+  const enSoc=p=>!socFact || p.soc===socFact;
+  const l=(db.preentregas||[]).filter(enSoc).slice().sort((a,b)=>((a.cobrado?1:0)-(b.cobrado?1:0))||((b.f||'').localeCompare(a.f||'')));
+  const pend=l.filter(p=>!p.cobrado).reduce((a,p)=>a+(p.monto||0),0);
+  if($('prePendTot')) $('prePendTot').textContent = pend>0 ? ('Pendiente de cobro: '+money(pend)) : 'Todo cobrado';
+  $('tbPreentregas').innerHTML = l.length ? l.map(p=>{
+    const est = p.cobrado ? ['Cobrado','#0e8a5f','#e3f5ee'] : ['Pendiente','#a16207','#fdf1d7'];
+    return '<tr'+(p.cobrado?' style="opacity:.65"':'')+'><td>'+fFecha(p.f)+'</td><td style="font-size:12px;font-weight:600;color:var(--gris)">'+(socNombre[p.soc]||'—')+'</td><td>'+esc(p.det)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td class="num">'+money(p.monto)+'</td>'+
+      '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+(p.cobrado&&p.medio?' · '+esc(p.medio):'')+'</span></td>'+
+      '<td style="white-space:nowrap;text-align:right"><button class="btn blanco mini" onclick="toggleCobradoPre(\''+p.id+'\')">'+(p.cobrado?'→ Pendiente':'✓ Cobrado')+'</button> <button class="btn blanco mini" onclick="editarPreentrega(\''+p.id+'\')">Editar</button> <button class="btn rojo mini" onclick="borrarPreentrega(\''+p.id+'\')">×</button></td></tr>';
+  }).join('') : '<tr><td colspan="7" class="vacio">Sin preentregas cargadas. Registrá acá los trabajos por fuera (0km, etc.) que facturás sin cliente.</td></tr>';
+}
 function renderFact(){
+  renderPreentregas();
   const mes = hoy().slice(0,7);
   const enSoc = o => !socFact || o.soc===socFact;
   const pendPago = otsActivas().filter(o=>o.estado==='Entregado' && enSoc(o));
@@ -2282,6 +2376,7 @@ function movimientosConta(d0,d1,soc){
   db.pagos.forEach(p=>l.push({ f:p.f, soc:socDe(p.ot), tipo:'Ingreso', medio:p.medio||'', cat:'Cobro de orden', det:p.ot+' · '+p.cliente+' ('+p.medio+')', origen:'Facturación', monto:p.monto }));
   db.provs.forEach(p=>l.push({ f:p.fecha, soc:p.soc||'', tipo:'Egreso', medio:'', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:p.total }));
   db.conta.forEach(c=>l.push({ id:c.id, f:c.f, soc:c.soc||'', tipo:c.tipo, medio:c.medio||'', cat:c.cat, det:c.det, origen:'Manual', monto:c.monto }));
+  (db.preentregas||[]).forEach(pe=>{ if(pe.cobrado) l.push({ f:pe.fcobro||pe.f, soc:pe.soc||'', tipo:'Ingreso', medio:pe.medio||'', cat:'Preentrega / cobro por fuera', det:pe.det+(pe.factura?' · '+pe.factura:''), origen:'Preentrega', monto:pe.monto }); });
   return l.filter(m=>(!d0 || (m.f||'')>=d0) && (!d1 || (m.f||'')<=d1) && (!soc || m.soc===soc))
           .sort((a,b)=>(b.f||'').localeCompare(a.f||''));
 }
@@ -2749,7 +2844,7 @@ function initSync(){
       const data=snap.data();
       if(data._client===myClientId || !data.db){ setSyncEstado('on'); return; }
       // PROTECCIÓN: no dejar que un remoto vacío borre datos locales; en ese caso subimos lo local
-      const cont = o => (o.ots||[]).length+(o.clientes||[]).length+(o.provs||[]).length+(o.inv||[]).length+(o.tareas||[]).length+(o.turnos||[]).length+(o.conta||[]).length+(o.pagos||[]).length+(o.facturas||[]).length+(o.movs||[]).length;
+      const cont = o => (o.ots||[]).length+(o.clientes||[]).length+(o.provs||[]).length+(o.inv||[]).length+(o.tareas||[]).length+(o.turnos||[]).length+(o.conta||[]).length+(o.pagos||[]).length+(o.facturas||[]).length+(o.movs||[]).length+(o.preentregas||[]).length;
       if(cont(data.db)===0 && cont(db)>0){ pushNow(); setSyncEstado('on'); return; }
       const adjLocal={}; (db.provs||[]).forEach(p=>{ if(p.adj) adjLocal[p.id]=p.adj; });
       aplicandoRemoto=true;
