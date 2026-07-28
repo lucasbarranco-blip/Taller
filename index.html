@@ -1205,6 +1205,7 @@ const MANUAL_MAX = IDX['Entregado']; // hasta acá se cambia a mano; Pagado/Fact
 
 /* ================= DB ================= */
 const CLAVE = 'tallerdb_v2';
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const fechaLocal = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const hoy = () => fechaLocal(new Date());
 let db = JSON.parse(localStorage.getItem(CLAVE) || 'null');
@@ -1291,7 +1292,6 @@ const $ = id => document.getElementById(id);
 const money = n => '$' + (Math.round(n)||0).toLocaleString('es-AR');
 const fFecha = s => s ? s.split('-').reverse().join('/') : '—';
 const esc = s => (s??'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const inic = n => (n||'—').trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase();
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('on'),2800); }
 function cerrar(id){ $(id).classList.remove('on'); if(typeof pendienteRender!=='undefined' && pendienteRender && typeof hayModalAbierto==='function' && !hayModalAbierto()){ pendienteRender=false; render(); } }
