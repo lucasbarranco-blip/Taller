@@ -932,6 +932,22 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
   </div>
 </div>
 
+<!-- ============ MODAL EDITAR COBRO ============ -->
+<div class="velo" id="vEditPago">
+  <div class="modal chico">
+    <div class="m-cab"><h3>Editar cobro</h3><button class="cerrar" onclick="cerrar('vEditPago')">×</button></div>
+    <div class="m-cuerpo">
+      <p style="color:var(--gris);margin-bottom:14px" id="epInfo"></p>
+      <div class="grid2">
+        <div class="campo"><label>Fecha</label><input type="date" id="epFecha"></div>
+        <div class="campo"><label>Monto</label><input type="number" id="epMonto" min="0"></div>
+      </div>
+      <div class="campo" style="margin:0"><label>Medio de pago</label><select id="epMedio"><option>Efectivo</option><option>Transferencia</option><option>Débito</option><option>Crédito</option><option>MercadoPago</option><option>Cheque</option><option>Banco</option></select></div>
+    </div>
+    <div class="foot-modal"><button class="btn rojo" onclick="borrarEditPago()">Eliminar cobro</button><div class="der"><button class="btn" onclick="guardarEditPago()">Guardar cambios</button></div></div>
+  </div>
+</div>
+
 <!-- ============ MODAL FACTURAR ============ -->
 <div class="velo" id="vFacturar">
   <div class="modal chico">
@@ -1218,6 +1234,7 @@ function normalizarDB(){
   db.cfg.categorias=db.cfg.categorias||['Alquiler','Sueldos','Servicios','Impuestos','Herramientas','Combustible','Seguros','Insumos','Honorarios'];
   if(db.cfg.validez===undefined) db.cfg.validez=7; db.cfg.saludo=db.cfg.saludo||''; db.cfg.condiciones=db.cfg.condiciones||''; if(db.cfg.ivaDef===undefined) db.cfg.ivaDef=21; db.cfg.msgPlantilla=db.cfg.msgPlantilla||''; db.cfg.firmaTQ=db.cfg.firmaTQ||''; db.cfg.moPresets=db.cfg.moPresets||[]; if(db.cfg.firmaTQtexto===undefined) db.cfg.firmaTQtexto='Luciano Magnotti · CUIT 20-43872162-3';
   db.seq=db.seq||{AT:0,TQ:0};
+  (db.pagos||[]).forEach(p=>{ if(!p.id) p.id=uid(); });
 }
 normalizarDB();
 function guardar(){
@@ -2266,7 +2283,7 @@ function confirmarPago(){
     if(egr>0){ p.stock -= egr; db.movs.push({ f:hoy(), tipo:'Egreso', sku:p.sku, prod:p.prod, cant:egr, ref:'Venta '+pagoOT.numero }); }
   });
   pagoOT.estado = 'Pagado'; pagoOT.fechaPago = hoy();
-  db.pagos.push({ f:hoy(), ot:pagoOT.numero, cliente:pagoOT.cliente, medio:$('cMedio').value, monto:+$('cMonto').value||0 });
+  db.pagos.push({ id:uid(), f:hoy(), ot:pagoOT.numero, cliente:pagoOT.cliente, medio:$('cMedio').value, monto:+$('cMonto').value||0 });
   guardar(); render(); cerrar('vPago'); toast('Pago registrado. Ahora podés facturar la orden.');
 }
 function abrirFacturar(id){
@@ -2373,10 +2390,10 @@ function aplicarLapsoConta(){
 }
 function movimientosConta(d0,d1,soc){
   const l = [];
-  db.pagos.forEach(p=>l.push({ f:p.f, soc:socDe(p.ot), tipo:'Ingreso', medio:p.medio||'', cat:'Cobro de orden', det:p.ot+' · '+p.cliente+' ('+p.medio+')', origen:'Facturación', monto:p.monto }));
-  db.provs.forEach(p=>l.push({ f:p.fecha, soc:p.soc||'', tipo:'Egreso', medio:'', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:p.total }));
+  db.pagos.forEach(p=>l.push({ refId:p.id, f:p.f, soc:socDe(p.ot), tipo:'Ingreso', medio:p.medio||'', cat:'Cobro de orden', det:p.ot+' · '+p.cliente+' ('+p.medio+')', origen:'Facturación', monto:p.monto }));
+  db.provs.forEach(p=>l.push({ refId:p.id, f:p.fecha, soc:p.soc||'', tipo:'Egreso', medio:'', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:p.total }));
   db.conta.forEach(c=>l.push({ id:c.id, f:c.f, soc:c.soc||'', tipo:c.tipo, medio:c.medio||'', cat:c.cat, det:c.det, origen:'Manual', monto:c.monto }));
-  (db.preentregas||[]).forEach(pe=>{ if(pe.cobrado) l.push({ f:pe.fcobro||pe.f, soc:pe.soc||'', tipo:'Ingreso', medio:pe.medio||'', cat:'Preentrega / cobro por fuera', det:pe.det+(pe.factura?' · '+pe.factura:''), origen:'Preentrega', monto:pe.monto }); });
+  (db.preentregas||[]).forEach(pe=>{ if(pe.cobrado) l.push({ refId:pe.id, f:pe.fcobro||pe.f, soc:pe.soc||'', tipo:'Ingreso', medio:pe.medio||'', cat:'Preentrega / cobro por fuera', det:pe.det+(pe.factura?' · '+pe.factura:''), origen:'Preentrega', monto:pe.monto }); });
   return l.filter(m=>(!d0 || (m.f||'')>=d0) && (!d1 || (m.f||'')<=d1) && (!soc || m.soc===soc))
           .sort((a,b)=>(b.f||'').localeCompare(a.f||''));
 }
@@ -2478,7 +2495,7 @@ function renderConta(){
     return '<tr><td>'+fFecha(m.f)+'</td><td style="font-size:12px;font-weight:600;color:var(--gris)">'+(m.soc?socNombre[m.soc]:'—')+'</td><td><span class="chip sin" style="color:'+c[0]+';background:'+c[1]+'">'+m.tipo+'</span></td><td>'+(m.medio?'<span class="chip sin" style="color:'+mColor[0]+';background:'+mColor[1]+'">'+esc(m.medio)+'</span>':'<span style="color:var(--gris2)">—</span>')+'</td><td>'+esc(m.cat)+'</td><td>'+esc(m.det)+'</td><td style="color:var(--gris2);font-size:12px">'+m.origen+'</td>'+
     '<td class="num" style="color:'+(m.tipo==='Ingreso'?'var(--ok)':'var(--rojo)')+';font-weight:600">'+(m.tipo==='Ingreso'?'+':'−')+money(m.monto).slice(1)+'</td>'+
     '<td class="num" style="font-weight:700;color:'+(m.saldo>=0?'var(--tinta)':'var(--rojo)')+'">'+money(m.saldo)+'</td>'+
-    '<td style="white-space:nowrap">'+(m.origen==='Manual'?'<button class="btn blanco mini" onclick="editarConta(\''+m.id+'\')">Editar</button> <button class="btn rojo mini" onclick="borrarConta(\''+m.id+'\')">Eliminar</button>':'')+'</td></tr>';
+    '<td style="white-space:nowrap">'+accionesMov(m)+'</td></tr>';
   }).join('') : '<tr><td colspan="10" class="vacio">Sin movimientos en el período. Los cobros de órdenes y las facturas de proveedor entran solos; lo demás lo cargás con el formulario.</td></tr>';
 }
 function llenarCats(){ if($('dlCats')) $('dlCats').innerHTML = (db.cfg.categorias||[]).map(c=>'<option>'+esc(c)+'</option>').join(''); }
@@ -2512,6 +2529,34 @@ function agregarConta(){
   db.conta.push({ id:uid(), ...datos });
   ['ctCat','ctDet','ctMonto'].forEach(i=>$(i).value='');
   guardar(); renderConta(); toast('Movimiento registrado.');
+}
+function accionesMov(m){
+  const rid = m.refId||m.id||'';
+  if(m.origen==='Manual') return '<button class="btn blanco mini" onclick="editarConta(\''+rid+'\')">Editar</button> <button class="btn rojo mini" onclick="borrarConta(\''+rid+'\')">Eliminar</button>';
+  if(m.origen==='Proveedores') return '<button class="btn blanco mini" onclick="setVistaProv(\'facturas\');abrirProv(\''+rid+'\')">Editar</button>';
+  if(m.origen==='Preentrega') return '<button class="btn blanco mini" onclick="irTab(\'facturacion\');editarPreentrega(\''+rid+'\')">Editar</button>';
+  if(m.origen==='Facturación') return '<button class="btn blanco mini" onclick="editarPago(\''+rid+'\')">Editar</button>';
+  return '';
+}
+let pagoEditId=null;
+function editarPago(id){
+  const p=db.pagos.find(x=>x.id===id); if(!p) return toast('No se encontró el cobro.');
+  pagoEditId=id;
+  $('epInfo').innerHTML='<b>'+esc(p.ot||'')+'</b> · '+esc(p.cliente||'');
+  $('epFecha').value=p.f||hoy(); $('epMonto').value=p.monto||0; $('epMedio').value=p.medio||'Efectivo';
+  $('vEditPago').classList.add('on');
+}
+function guardarEditPago(){
+  const p=db.pagos.find(x=>x.id===pagoEditId); if(!p) return;
+  p.f=$('epFecha').value||hoy(); p.monto=+$('epMonto').value||0; p.medio=$('epMedio').value;
+  guardar(); render(); cerrar('vEditPago'); toast('Cobro actualizado.');
+}
+function borrarEditPago(){
+  const p=db.pagos.find(x=>x.id===pagoEditId); if(!p) return;
+  if(!confirm('¿Eliminar este cobro de '+money(p.monto)+'? Si la orden estaba en Pagado, vuelve a Entregado.')) return;
+  const ot=db.ots.find(o=>o.numero===p.ot); if(ot && ot.estado==='Pagado'){ ot.estado='Entregado'; ot.fechaPago=''; }
+  db.pagos=db.pagos.filter(x=>x.id!==pagoEditId);
+  guardar(); render(); cerrar('vEditPago'); toast('Cobro eliminado.');
 }
 function borrarConta(id){ if(confirm('¿Eliminar el movimiento?')){ db.conta=db.conta.filter(c=>c.id!==id); guardar(); renderConta(); } }
 function exportarConta(){
