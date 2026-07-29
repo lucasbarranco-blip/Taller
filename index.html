@@ -202,7 +202,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 .paso.bloq:hover{border-color:var(--borde2)}
 
 /* items */
-.itemrow{display:grid;grid-template-columns:26px 1fr 128px 48px 78px 92px 118px 30px;gap:8px;align-items:center;margin-bottom:8px}
+.itemrow{display:grid;grid-template-columns:24px 1fr 104px 42px 60px 80px 88px 96px 26px;gap:7px;align-items:center;margin-bottom:8px}
 .itemhead{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gris2)}
 .itemrow .quitar{background:none;border:none;color:var(--rojo);font-size:17px;border-radius:6px}
 .itemrow .quitar:hover{background:var(--rojo-suave)}
@@ -358,7 +358,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 
 @media(max-width:980px){
 .turnos-grid{grid-template-columns:1fr}
-.itemprov{grid-template-columns:1fr 54px 90px 90px 26px} aside{width:64px} .logo b,.logo small,aside nav button span,.side-pie button span,.bd{display:none} .logo{justify-content:center;padding:16px 0} aside nav button{justify-content:center} main{padding:20px 16px 80px} .itemrow{grid-template-columns:24px 1fr 72px 42px 58px 74px 88px 26px} .grid3,.grid5{grid-template-columns:1fr 1fr} }
+.itemprov{grid-template-columns:1fr 54px 90px 90px 26px} aside{width:64px} .logo b,.logo small,aside nav button span,.side-pie button span,.bd{display:none} .logo{justify-content:center;padding:16px 0} aside nav button{justify-content:center} main{padding:20px 16px 80px} .itemrow{grid-template-columns:22px 1fr 64px 38px 52px 66px 72px 78px 24px} .grid3,.grid5{grid-template-columns:1fr 1fr} }
 </style>
 </head>
 <body>
@@ -828,9 +828,10 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 
       <div class="seccion">
         <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Repuestos e insumos</h4>
-        <div class="itemrow itemhead"><div>#</div><div>Descripción</div><div>Proveedor</div><div>Cant.</div><div>Unidad</div><div>Costo unit.</div><div>Stock vinculado</div><div></div></div>
+        <div class="itemrow itemhead"><div>#</div><div>Descripción</div><div>Proveedor</div><div>Cant.</div><div>Unidad</div><div>Costo unit.</div><div>Precio cliente</div><div>Stock vinculado</div><div></div></div>
         <div id="otItems"></div>
         <button class="btn blanco mini" onclick="agregarItem()">+ Agregar repuesto</button>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12.5px;font-weight:600;color:var(--tinta);cursor:pointer"><input type="checkbox" id="otDetalleRep" onchange="toggleDetalleRep()" style="width:auto;margin:0"> Detallar cada repuesto con su precio en el presupuesto del cliente</label>
         <div style="display:grid;grid-template-columns:1fr 240px;gap:14px;align-items:end;margin-top:14px;border-top:1px dashed var(--borde2);padding-top:12px">
           <div style="font-size:11.5px;color:var(--gris);line-height:1.5">Los costos de arriba son internos (lo que gastaste). Costo de repuestos: <b id="otRepCosto" style="font-family:var(--mono);color:var(--tinta)">$0</b>.<br>A la derecha ponés el <b>total que le cobrás al cliente</b> por repuestos e insumos (es lo único que ve el cliente).</div>
           <div class="campo" style="margin:0"><label>Total repuestos e insumos (cliente)</label><input type="number" id="otRepVenta" min="0" value="0" oninput="calcOT()" style="font-weight:700"></div>
@@ -945,6 +946,26 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <div class="campo" style="margin:0"><label>Medio de pago</label><select id="epMedio"><option>Efectivo</option><option>Transferencia</option><option>Débito</option><option>Crédito</option><option>MercadoPago</option><option>Cheque</option><option>Banco</option></select></div>
     </div>
     <div class="foot-modal"><button class="btn rojo" onclick="borrarEditPago()">Eliminar cobro</button><div class="der"><button class="btn" onclick="guardarEditPago()">Guardar cambios</button></div></div>
+  </div>
+</div>
+
+<!-- ============ MODAL EDITAR FACTURA (VENTA) ============ -->
+<div class="velo" id="vEditFactura">
+  <div class="modal chico">
+    <div class="m-cab"><h3>Editar comprobante de venta</h3><button class="cerrar" onclick="cerrar('vEditFactura')">×</button></div>
+    <div class="m-cuerpo">
+      <p style="color:var(--gris);margin-bottom:14px" id="efInfo"></p>
+      <div class="grid2">
+        <div class="campo"><label>Fecha</label><input type="date" id="efFecha"></div>
+        <div class="campo"><label>Monto</label><input type="number" id="efMonto" min="0"></div>
+      </div>
+      <div class="grid2">
+        <div class="campo"><label>Cliente</label><input id="efCliente"></div>
+        <div class="campo"><label>Tipo</label><select id="efTipo"><option>Factura B</option><option>Factura A</option><option>Factura C</option><option>Recibo interno</option></select></div>
+      </div>
+      <div class="campo" style="margin:0"><label>N° de comprobante</label><input id="efNro" style="font-family:var(--mono)"></div>
+    </div>
+    <div class="foot-modal"><button class="btn rojo" onclick="borrarEditFactura()">Eliminar comprobante</button><div class="der"><button class="btn" onclick="guardarEditFactura()">Guardar cambios</button></div></div>
   </div>
 </div>
 
@@ -1236,6 +1257,7 @@ function normalizarDB(){
   if(db.cfg.validez===undefined) db.cfg.validez=7; db.cfg.saludo=db.cfg.saludo||''; db.cfg.condiciones=db.cfg.condiciones||''; if(db.cfg.ivaDef===undefined) db.cfg.ivaDef=21; db.cfg.msgPlantilla=db.cfg.msgPlantilla||''; db.cfg.firmaTQ=db.cfg.firmaTQ||''; db.cfg.moPresets=db.cfg.moPresets||[]; if(db.cfg.firmaTQtexto===undefined) db.cfg.firmaTQtexto='Luciano Magnotti · CUIT 20-43872162-3';
   db.seq=db.seq||{AT:0,TQ:0};
   (db.pagos||[]).forEach(p=>{ if(!p.id) p.id=uid(); });
+  (db.facturas||[]).forEach(f=>{ if(!f.id) f.id=uid(); });
 }
 normalizarDB();
 function guardar(){
@@ -1703,6 +1725,7 @@ function abrirOT(id){
   $('otRepVenta').value = (o.repVenta!==undefined && o.repVenta!==null && o.repVenta!=='') ? o.repVenta : (o.items||[]).reduce((a,i)=>a+(i.cant||0)*(i.precio||0),0);
   $('otItems').innerHTML = '';
   (o.items && o.items.length ? o.items : [null]).forEach(agregarItem);
+  if($('otDetalleRep')){ $('otDetalleRep').checked = !!o.detallarRep; toggleDetalleRep(); }
   if($('cliDrop')) $('cliDrop').hidden=true;
   const cliMatch = (o.clienteId && db.clientes.find(c=>c.id===o.clienteId)) || db.clientes.find(c=>(c.nombre||'').trim().toLowerCase()===(o.cliente||'').trim().toLowerCase());
   otClienteSelId = cliMatch ? cliMatch.id : null;
@@ -1729,6 +1752,7 @@ function agregarItem(it){
     '<input class="i-cant" type="number" min="0" step="any" value="'+(it?.cant??1)+'" oninput="calcOT()">'+
     '<select class="i-unidad">'+opcionesUnidad(it?.unidad||'Unidad')+'</select>'+
     '<input class="i-costo" type="number" min="0" value="'+(it?.costo||0)+'" oninput="calcOT()">'+
+    '<input class="i-precio" type="number" min="0" value="'+(it?.precio||0)+'" oninput="calcOT()" title="Precio unitario que le cobrás al cliente">'+
     '<select class="i-inv" onchange="vincularInv(this)">'+opcionesInv(it?.invId||'')+'</select>'+
     '<button class="quitar" title="Quitar" onclick="this.parentElement.remove();renumerar();calcOT()">×</button>';
   $('otItems').appendChild(d);
@@ -1747,11 +1771,13 @@ function leerItems(){
   return [...$('otItems').children].filter(r=>r.querySelector('.i-desc').value.trim()).map(r=>({
     desc: r.querySelector('.i-desc').value.trim(), prov: r.querySelector('.i-prov').value.trim(),
     cant: +r.querySelector('.i-cant').value || 0, unidad: r.querySelector('.i-unidad').value,
-    costo: +r.querySelector('.i-costo').value || 0, invId: r.querySelector('.i-inv').value || null
+    costo: +r.querySelector('.i-costo').value || 0, precio: +r.querySelector('.i-precio').value || 0, invId: r.querySelector('.i-inv').value || null
   }));
 }
+function toggleDetalleRep(){ const on=$('otDetalleRep')&&$('otDetalleRep').checked; if($('otRepVenta')){ $('otRepVenta').disabled=on; $('otRepVenta').title=on?'Se calcula sumando el precio de cada repuesto':''; } calcOT(); }
 function calcOT(){
   const items = leerItems();
+  if($('otDetalleRep') && $('otDetalleRep').checked){ const sum=items.reduce((a,i)=>a+(i.cant||0)*(i.precio||0),0); if($('otRepVenta')) $('otRepVenta').value=sum; }
   const t = totalesOT({ items, repVenta:$('otRepVenta').value, moPrecio:+$('otMOprecio').value||0 });
   const costoRep = items.reduce((a,i)=>a+(i.cant||0)*(i.costo||0),0);
   if($('otRepCosto')) $('otRepCosto').textContent = money(costoRep);
@@ -1770,7 +1796,7 @@ function guardarOT(){
     veh:$('otVeh').value.trim(), dominio:$('otDominio').value.trim().toUpperCase(), km:$('otKm').value.trim(),
     chasis:$('otChasis').value.trim().toUpperCase(), motor:$('otMotor').value.trim().toUpperCase(),
     clienteId: otClienteSelId || (otEdit?otEdit.clienteId:null),
-    items:leerItems(), repVenta:+$('otRepVenta').value||0, moDet:$('otMOdet').value.trim(), moCosto:0, moPrecio:+$('otMOprecio').value||0
+    items:leerItems(), repVenta:+$('otRepVenta').value||0, detallarRep:!!($('otDetalleRep')&&$('otDetalleRep').checked), moDet:$('otMOdet').value.trim(), moCosto:0, moPrecio:+$('otMOprecio').value||0
   };
   if(otEdit){ Object.assign(otEdit, datos); }
   else {
@@ -2295,7 +2321,7 @@ function abrirFacturar(id){
 }
 function confirmarFactura(){
   const pago = [...db.pagos].reverse().find(p=>p.ot===factOT.numero) || {};
-  db.facturas.push({ f:hoy(), ot:factOT.numero, cliente:factOT.cliente, tipo:$('fTipo').value,
+  db.facturas.push({ id:uid(), f:hoy(), ot:factOT.numero, cliente:factOT.cliente, tipo:$('fTipo').value,
     nro:$('fNro').value.trim(), arca:$('fArca').checked, monto:pago.monto||totalesOT(factOT).venta });
   factOT.estado = $('fCerrar').checked ? 'Terminado' : 'Facturado';
   factOT.fechaFactura = hoy();
@@ -2476,11 +2502,11 @@ function renderConta(){
       '<div class="kpi"><div class="t">'+(saldoIva>=0?'IVA a pagar':'Saldo de IVA a favor')+'</div><div class="n" style="color:'+(saldoIva>=0?'var(--rojo)':'var(--ok)')+'">'+money(Math.abs(saldoIva))+'</div><div class="d">débito − crédito</div></div>'+
     '</div>'+
     '<div class="grid2" style="gap:16px;align-items:start">'+
-      '<div><div style="font-size:11px;font-weight:800;color:var(--ok);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Compras</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Proveedor</th><th class="num">Total</th><th class="num">IVA</th></tr></thead><tbody>'+
-        (comprasP.length ? comprasP.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(p=>'<tr><td>'+fFecha(p.fecha)+'</td><td>'+esc(p.nombre||'—')+'</td><td class="num">'+money(p.total)+'</td><td class="num">'+money(ivaDe(p.total,p.iva))+'</td></tr>').join('') : '<tr><td colspan="4" class="vacio">Sin compras en el período.</td></tr>')+
+      '<div><div style="font-size:11px;font-weight:800;color:var(--ok);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Compras</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Proveedor</th><th class="num">Total</th><th class="num">IVA</th><th></th></tr></thead><tbody>'+
+        (comprasP.length ? comprasP.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(p=>'<tr><td>'+fFecha(p.fecha)+'</td><td>'+esc(p.nombre||'—')+'</td><td class="num">'+money(p.total)+'</td><td class="num">'+money(ivaDe(p.total,p.iva))+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="setVistaProv(\'facturas\');abrirProv(\''+p.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="5" class="vacio">Sin compras en el período.</td></tr>')+
       '</tbody></table></div></div>'+
-      '<div><div style="font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Ventas facturadas</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Total</th><th class="num">IVA</th></tr></thead><tbody>'+
-        (ventasP.length ? ventasP.slice().sort((a,b)=>(b.f||'').localeCompare(a.f||'')).map(f=>'<tr><td>'+fFecha(f.f)+'</td><td>'+esc(f.cliente||f.ot||'—')+'</td><td class="num">'+money(f.monto)+'</td><td class="num">'+money(gravaVenta(f)?ivaDe(f.monto,ivaRate):0)+'</td></tr>').join('') : '<tr><td colspan="4" class="vacio">Sin ventas facturadas en el período.</td></tr>')+
+      '<div><div style="font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Ventas facturadas</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Total</th><th class="num">IVA</th><th></th></tr></thead><tbody>'+
+        (ventasP.length ? ventasP.slice().sort((a,b)=>(b.f||'').localeCompare(a.f||'')).map(f=>'<tr><td>'+fFecha(f.f)+'</td><td>'+esc(f.cliente||f.ot||'—')+'</td><td class="num">'+money(f.monto)+'</td><td class="num">'+money(gravaVenta(f)?ivaDe(f.monto,ivaRate):0)+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="editarFactura(\''+f.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="5" class="vacio">Sin ventas facturadas en el período.</td></tr>')+
       '</tbody></table></div></div>'+
     '</div>';
   llenarCats();
@@ -2538,7 +2564,27 @@ function accionesMov(m){
   if(m.origen==='Facturación') return '<button class="btn blanco mini" onclick="editarPago(\''+rid+'\')">Editar</button>';
   return '';
 }
-let pagoEditId=null;
+let pagoEditId=null, factEditId=null;
+function editarFactura(id){
+  const f=db.facturas.find(x=>x.id===id); if(!f) return toast('No se encontró el comprobante.');
+  factEditId=id;
+  $('efInfo').innerHTML='<b>'+esc(f.ot||'')+'</b>'+(f.nro?' · N° '+esc(f.nro):'');
+  $('efFecha').value=f.f||hoy(); $('efMonto').value=f.monto||0; $('efCliente').value=f.cliente||'';
+  $('efTipo').value=f.tipo||'Factura B'; $('efNro').value=f.nro||'';
+  $('vEditFactura').classList.add('on');
+}
+function guardarEditFactura(){
+  const f=db.facturas.find(x=>x.id===factEditId); if(!f) return;
+  f.f=$('efFecha').value||hoy(); f.monto=+$('efMonto').value||0; f.cliente=$('efCliente').value.trim();
+  f.tipo=$('efTipo').value; f.nro=$('efNro').value.trim();
+  guardar(); render(); cerrar('vEditFactura'); toast('Comprobante actualizado.');
+}
+function borrarEditFactura(){
+  const f=db.facturas.find(x=>x.id===factEditId); if(!f) return;
+  if(!confirm('¿Eliminar este comprobante de venta de '+money(f.monto)+'?')) return;
+  db.facturas=db.facturas.filter(x=>x.id!==factEditId);
+  guardar(); render(); cerrar('vEditFactura'); toast('Comprobante eliminado.');
+}
 function editarPago(id){
   const p=db.pagos.find(x=>x.id===id); if(!p) return toast('No se encontró el cobro.');
   pagoEditId=id;
@@ -2606,7 +2652,7 @@ function otDesdeModal(){
   return { soc:$('otSoc').value, numero: otEdit ? otEdit.numero : '(BORRADOR)', fecha:$('otFecha').value||hoy(),
     cliente:$('otCliente').value, celu:$('otCelu').value, email:$('otEmail').value,
     veh:$('otVeh').value, dominio:$('otDominio').value, km:$('otKm').value, chasis:$('otChasis').value, motor:$('otMotor').value,
-    items:leerItems(), repVenta:+$('otRepVenta').value||0, moDet:$('otMOdet').value, moPrecio:+$('otMOprecio').value||0 };
+    items:leerItems(), repVenta:+$('otRepVenta').value||0, detallarRep:!!($('otDetalleRep')&&$('otDetalleRep').checked), moDet:$('otMOdet').value, moPrecio:+$('otMOprecio').value||0 };
 }
 const PLANTILLA_MSG_DEFAULT = '{taller}\nPRESUPUESTO {numero} — {fecha}\n\nCliente: {cliente}\nVehículo: {vehiculo} ({dominio})\n\n{items}Total repuestos: {repuestos}\nMano de obra: {manoobra}\nTOTAL: {total}\n\n{condiciones}';
 function itemsTexto(o){
@@ -2750,7 +2796,7 @@ function imprimirOT(modo){
     soc:$('otSoc').value, numero: otEdit ? otEdit.numero : '(BORRADOR)', fecha:$('otFecha').value||hoy(),
     cliente:$('otCliente').value, celu:$('otCelu').value, email:$('otEmail').value,
     veh:$('otVeh').value, dominio:$('otDominio').value, km:$('otKm').value, chasis:$('otChasis').value, motor:$('otMotor').value,
-    items:leerItems(), repVenta:+$('otRepVenta').value||0, moDet:$('otMOdet').value, moCosto:0, moPrecio:+$('otMOprecio').value||0
+    items:leerItems(), repVenta:+$('otRepVenta').value||0, detallarRep:!!($('otDetalleRep')&&$('otDetalleRep').checked), moDet:$('otMOdet').value, moCosto:0, moPrecio:+$('otMOprecio').value||0
   };
   armarHoja(o, modo); imprimirHoja();
 }
@@ -2770,9 +2816,13 @@ function armarHoja(o, modo){
 
   let tabla, tots, marca='';
   if(modo==='cliente'){
-    tabla = '<table><thead><tr><th style="width:34px">#</th><th>Repuestos e insumos</th><th class="num" style="width:70px">Cant.</th></tr></thead><tbody>'+
-      (o.items.map((i,x)=>'<tr><td>'+(x+1)+'</td><td>'+esc(i.desc)+'</td><td class="num">'+(i.cant||0)+(i.unidad&&i.unidad!=="Unidad"?" "+esc(i.unidad):"")+'</td></tr>').join('') || '<tr><td colspan="3">—</td></tr>')+
-      '</tbody></table>';
+    tabla = o.detallarRep
+      ? '<table><thead><tr><th style="width:28px">#</th><th>Repuestos e insumos</th><th class="num">Cant.</th><th class="num">P. unit.</th><th class="num">Subtotal</th></tr></thead><tbody>'+
+        (o.items.map((i,x)=>{ const pu=i.precio||0, st=(i.cant||0)*pu; return '<tr><td>'+(x+1)+'</td><td>'+esc(i.desc)+'</td><td class="num">'+(i.cant||0)+(i.unidad&&i.unidad!=="Unidad"?" "+esc(i.unidad):"")+'</td><td class="num">'+money(pu)+'</td><td class="num">'+money(st)+'</td></tr>'; }).join('') || '<tr><td colspan="5">—</td></tr>')+
+        '</tbody></table>'
+      : '<table><thead><tr><th style="width:34px">#</th><th>Repuestos e insumos</th><th class="num" style="width:70px">Cant.</th></tr></thead><tbody>'+
+        (o.items.map((i,x)=>'<tr><td>'+(x+1)+'</td><td>'+esc(i.desc)+'</td><td class="num">'+(i.cant||0)+(i.unidad&&i.unidad!=="Unidad"?" "+esc(i.unidad):"")+'</td></tr>').join('') || '<tr><td colspan="3">—</td></tr>')+
+        '</tbody></table>';
     tots = '<div class="h-tots">'+
       '<div class="fila"><span>Repuestos e insumos</span><b>'+money(rep)+'</b></div>'+
       '<div class="fila"><span>Mano de obra</span><b>'+money(o.moPrecio)+'</b></div>'+
