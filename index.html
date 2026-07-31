@@ -636,6 +636,10 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
     <div class="cab-box" style="gap:12px;flex-wrap:wrap">
       <div class="segm"><button id="cmTodos" class="on" onclick="setContaMedio('')">Todos</button><button id="cmBanco" onclick="setContaMedio('Banco')">Banco</button><button id="cmEfectivo" onclick="setContaMedio('Efectivo')">Efectivo</button></div>
       <div id="ctMedioInfo" style="font-size:12px;color:var(--gris2)"></div>
+      <div style="margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input id="ctQ" placeholder="Buscar categoría, detalle, origen, monto…" oninput="renderConta()" style="min-width:250px">
+        <label style="display:flex;gap:5px;align-items:center;font-size:12px;color:var(--gris2);font-weight:600;white-space:nowrap"><input type="checkbox" id="ctAgrup" checked onchange="renderConta()"> Agrupar por mes</label>
+      </div>
     </div>
     <div class="scrollx">
     <table>
@@ -2036,6 +2040,7 @@ function renderProvCC(){
     const facturado=fs.reduce((a,p)=>a+(p.total||0),0);
     const saldo=pend.reduce((a,p)=>a+(p.total||0),0);
     const vencidas=pend.filter(p=>p.venc&&p.venc<hoy());
+    const vencido=vencidas.reduce((a,p)=>a+(p.total||0),0);
     const prox=pend.filter(p=>p.venc).map(p=>p.venc).sort()[0];
     const gid='cc_'+ix;
     if(ccAbiertos.size===0 && claves.length===1) ccAbiertos.add(gid);
@@ -2056,7 +2061,7 @@ function renderProvCC(){
       '<div class="cli-cab" onclick="toggleCC(\''+gid+'\')">'+
         '<div class="avatar" style="border-radius:9px">'+inic(k)+'</div>'+
         '<div class="datos"><b>'+esc(k)+'</b><small>'+pend.length+' pendiente'+(pend.length!==1?'s':'')+(vencidas.length?' · '+vencidas.length+' vencida'+(vencidas.length!==1?'s':''):'')+(prox?' · próx. vence '+fFecha(prox):'')+(pagadas.length?' · '+pagadas.length+' pagada'+(pagadas.length!==1?'s':''):'')+'</small></div>'+
-        '<div class="mini-kpis"><span>Facturado<b>'+money(facturado)+'</b></span><span>Saldo adeudado<b style="color:'+(saldo>0?'var(--rojo)':'var(--ok)')+'">'+money(saldo)+'</b></span></div>'+
+        '<div class="mini-kpis"><span>Facturado<b>'+money(facturado)+'</b></span><span>Adeudado<b style="color:'+(saldo>0?'var(--ambar,#a16207)':'var(--ok)')+'">'+money(saldo)+'</b></span><span>Vencido<b style="color:'+(vencido>0?'var(--rojo)':'var(--ok)')+'">'+money(vencido)+'</b></span></div>'+
         '<span class="chev">▶</span>'+
       '</div>'+
       '<div class="cli-cuerpo">'+bcard+'<div class="scrollx"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Vence</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead><tbody>'+
@@ -2398,6 +2403,14 @@ function borrarTurno(){ if(turnoEdit && confirm('¿Eliminar el turno?')){ db.tur
 
 /* ================= LIBRO CONTABLE ================= */
 let socConta = '', contaMedio = '';
+// Un cobro puede venir como Transferencia, Débito, Crédito, MercadoPago o Cheque:
+// todos esos entran al banco. Solo Efectivo es caja.
+function cuentaDe(medio){
+  const m = (medio||'').trim().toLowerCase();
+  if(!m) return '';
+  if(m==='efectivo') return 'Efectivo';
+  return 'Banco';
+}
 function setContaMedio(v){ contaMedio=v; ['cmTodos','cmBanco','cmEfectivo'].forEach(x=>{ const b=$(x); if(b) b.classList.toggle('on', (x==='cmTodos'&&v==='')||(x==='cmBanco'&&v==='Banco')||(x==='cmEfectivo'&&v==='Efectivo')); }); renderConta(); }
 let ctInit = false;
 function setSocConta(s){
@@ -2448,8 +2461,8 @@ function renderConta(){
   if(!ctInit){ ctInit = true; const r = rangoLapso('mes'); $('ctDesde').value=r[0]; $('ctHasta').value=r[1]; $('ctFecha').value=hoy(); }
   const d0=$('ctDesde').value, d1=$('ctHasta').value;
   let l = movimientosConta(d0,d1,socConta);
-  if(contaMedio){ l = l.filter(m=>m.medio===contaMedio); }
-  { const inB=l.filter(m=>m.medio==='Banco'&&m.tipo==='Ingreso').reduce((a,m)=>a+m.monto,0)-l.filter(m=>m.medio==='Banco'&&m.tipo!=='Ingreso').reduce((a,m)=>a+m.monto,0); const inE=l.filter(m=>m.medio==='Efectivo'&&m.tipo==='Ingreso').reduce((a,m)=>a+m.monto,0)-l.filter(m=>m.medio==='Efectivo'&&m.tipo!=='Ingreso').reduce((a,m)=>a+m.monto,0); if($('ctMedioInfo')) $('ctMedioInfo').innerHTML = contaMedio ? ('Mostrando solo <b>'+contaMedio+'</b>') : ('Neto Banco: <b>'+money(inB)+'</b> · Neto Efectivo: <b>'+money(inE)+'</b>'); }
+  if(contaMedio){ l = l.filter(m=>cuentaDe(m.medio)===contaMedio); }
+  { const neto=(cta)=>l.filter(m=>cuentaDe(m.medio)===cta).reduce((a,m)=>a+(m.tipo==='Ingreso'?1:-1)*m.monto,0); const inB=neto('Banco'), inE=neto('Efectivo'); if($('ctMedioInfo')) $('ctMedioInfo').innerHTML = contaMedio ? ('Mostrando solo <b>'+contaMedio+'</b>') : ('Neto Banco: <b>'+money(inB)+'</b> · Neto Efectivo: <b>'+money(inE)+'</b>'); }
   const ing = l.filter(m=>m.tipo==='Ingreso').reduce((a,m)=>a+m.monto,0);
   const egr = l.filter(m=>m.tipo!=='Ingreso').reduce((a,m)=>a+m.monto,0);
   const res = ing-egr;
@@ -2515,14 +2528,43 @@ function renderConta(){
   const asc = [...l].sort((a,b)=>(a.f||'').localeCompare(b.f||''));
   let saldo = 0; asc.forEach(m=>{ saldo += (m.tipo==='Ingreso'?1:-1)*m.monto; m.saldo = saldo; });
   const color = { 'Ingreso':['#0e8a5f','#e3f5ee'], 'Egreso':['#c2372e','#fbe9e7'], 'Otro costo':['#a16207','#fdf1d7'] };
-  $('tbConta').innerHTML = l.length ? l.map(m=>{
+  const filaMov = (m)=>{
     const c = color[m.tipo]||color['Otro costo'];
-    const mColor = m.medio==='Efectivo' ? ['#0e8a5f','#e3f5ee'] : (m.medio==='Banco' ? ['#1c4fd6','#e7edfd'] : ['#8b93a1','#eceef2']);
+    const cta = cuentaDe(m.medio);
+    const mColor = cta==='Efectivo' ? ['#0e8a5f','#e3f5ee'] : (cta==='Banco' ? ['#1c4fd6','#e7edfd'] : ['#8b93a1','#eceef2']);
     return '<tr><td>'+fFecha(m.f)+'</td><td style="font-size:12px;font-weight:600;color:var(--gris)">'+(m.soc?socNombre[m.soc]:'—')+'</td><td><span class="chip sin" style="color:'+c[0]+';background:'+c[1]+'">'+m.tipo+'</span></td><td>'+(m.medio?'<span class="chip sin" style="color:'+mColor[0]+';background:'+mColor[1]+'">'+esc(m.medio)+'</span>':'<span style="color:var(--gris2)">—</span>')+'</td><td>'+esc(m.cat)+'</td><td>'+esc(m.det)+'</td><td style="color:var(--gris2);font-size:12px">'+m.origen+'</td>'+
     '<td class="num" style="color:'+(m.tipo==='Ingreso'?'var(--ok)':'var(--rojo)')+';font-weight:600">'+(m.tipo==='Ingreso'?'+':'−')+money(m.monto).slice(1)+'</td>'+
     '<td class="num" style="font-weight:700;color:'+(m.saldo>=0?'var(--tinta)':'var(--rojo)')+'">'+money(m.saldo)+'</td>'+
     '<td style="white-space:nowrap">'+accionesMov(m)+'</td></tr>';
-  }).join('') : '<tr><td colspan="10" class="vacio">Sin movimientos en el período. Los cobros de órdenes y las facturas de proveedor entran solos; lo demás lo cargás con el formulario.</td></tr>';
+  };
+  // buscador (solo afecta la tabla; los totales y el saldo siguen siendo los del período)
+  const q = ($('ctQ') && $('ctQ').value || '').trim().toLowerCase();
+  const lt = q ? l.filter(m=>[m.cat,m.det,m.origen,m.tipo,m.medio,m.soc?socNombre[m.soc]:'',String(Math.round(m.monto||0)),fFecha(m.f)].join(' ').toLowerCase().includes(q)) : l;
+  const vacioMsg = q
+    ? '<tr><td colspan="10" class="vacio">Ningún movimiento coincide con «'+esc(q)+'» en este período.</td></tr>'
+    : '<tr><td colspan="10" class="vacio">Sin movimientos en el período. Los cobros de órdenes y las facturas de proveedor entran solos; lo demás lo cargás con el formulario.</td></tr>';
+  const agrup = !$('ctAgrup') || $('ctAgrup').checked;
+  if(!lt.length){ $('tbConta').innerHTML = vacioMsg; }
+  else if(!agrup){ $('tbConta').innerHTML = lt.map(filaMov).join(''); }
+  else {
+    const gr={}; lt.forEach(m=>{ const ym=(m.f||'').slice(0,7)||'—'; (gr[ym]=gr[ym]||[]).push(m); });
+    $('tbConta').innerHTML = Object.keys(gr).sort((a,b)=>b.localeCompare(a)).map(ym=>{
+      const rows=gr[ym];
+      const gi=rows.filter(m=>m.tipo==='Ingreso').reduce((a,m)=>a+m.monto,0);
+      const ge=rows.filter(m=>m.tipo!=='Ingreso').reduce((a,m)=>a+m.monto,0);
+      const gres=gi-ge;
+      return '<tr><td colspan="10" style="background:#f4f6fa;border-top:2px solid var(--borde);padding:7px 10px">'+
+        '<span style="font-weight:800;font-size:12px;color:var(--gris);letter-spacing:.03em">'+(ym==='—'?'Sin fecha':esc(nombreMes(ym)))+'</span>'+
+        '<span style="font-size:11px;color:var(--gris2);font-weight:600;margin-left:7px">'+rows.length+' movimiento'+(rows.length!==1?'s':'')+'</span>'+
+        '<span style="float:right;font-family:var(--mono);font-size:11.5px;font-weight:700">'+
+          '<span style="color:var(--ok)">+'+money(gi).slice(1)+'</span>'+
+          '<span style="color:var(--gris2);margin:0 6px">·</span>'+
+          '<span style="color:var(--rojo)">−'+money(ge).slice(1)+'</span>'+
+          '<span style="color:var(--gris2);margin:0 6px">·</span>'+
+          '<span style="color:'+(gres>=0?'var(--ok)':'var(--rojo)')+'">'+money(gres)+'</span>'+
+        '</span></td></tr>'+rows.map(filaMov).join('');
+    }).join('');
+  }
 }
 function llenarCats(){ if($('dlCats')) $('dlCats').innerHTML = (db.cfg.categorias||[]).map(c=>'<option>'+esc(c)+'</option>').join(''); }
 function abrirCats(){ pintarCats(); $('vCats').classList.add('on'); }
