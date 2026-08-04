@@ -937,6 +937,21 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
   </div>
 </div>
 
+<!-- ============ MODAL METODO DE PAGO ============ -->
+<div class="velo" id="vMedioPago">
+  <div class="modal chico">
+    <div class="m-cab"><h3>¿Cómo fue el movimiento?</h3><button class="cerrar" onclick="cerrar('vMedioPago')">×</button></div>
+    <div class="m-cuerpo">
+      <p style="color:var(--gris);margin-bottom:16px" id="medioPagoTitulo"></p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <button class="btn blanco" style="padding:20px 12px;flex-direction:column;gap:6px;font-size:14px;font-weight:700" onclick="elegirMedioPago('Banco')"><span style="font-size:30px">🏦</span>Banco / Transferencia</button>
+        <button class="btn blanco" style="padding:20px 12px;flex-direction:column;gap:6px;font-size:14px;font-weight:700" onclick="elegirMedioPago('Efectivo')"><span style="font-size:30px">💵</span>Efectivo</button>
+      </div>
+      <div style="text-align:center;margin-top:14px"><button class="btn fantasma mini" onclick="cerrar('vMedioPago')">Cancelar</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ MODAL EDITAR COBRO ============ -->
 <div class="velo" id="vEditPago">
   <div class="modal chico">
@@ -2007,7 +2022,14 @@ function guardarProv(){
   render(); cerrar('vProv'); toast('Factura de proveedor guardada.');
 }
 function borrarProvModal(){ if(provEdit && confirm('¿Eliminar la factura de '+provEdit.nombre+'?')){ db.provs=db.provs.filter(p=>p.id!==provEdit.id); guardar(); render(); cerrar('vProv'); } }
-function togglePagada(id){ const p=db.provs.find(x=>x.id===id); if(!p) return; if(!p.pagada){ p.medio = confirm('¿El pago fue por BANCO/transferencia?\n\nAceptar = Banco   ·   Cancelar = Efectivo') ? 'Banco' : 'Efectivo'; p.pagada=true; p.fpago=hoy(); } else { p.pagada=false; p.fpago=''; p.medio=''; } guardar(); render(); }
+let _medioCb=null;
+function pedirMedio(titulo, cb){ _medioCb=cb; if($('medioPagoTitulo')) $('medioPagoTitulo').textContent=titulo||''; $('vMedioPago').classList.add('on'); }
+function elegirMedioPago(m){ const cb=_medioCb; _medioCb=null; cerrar('vMedioPago'); if(cb) cb(m); }
+function togglePagada(id){
+  const p=db.provs.find(x=>x.id===id); if(!p) return;
+  if(p.pagada){ p.pagada=false; p.fpago=''; p.medio=''; guardar(); render(); return; }
+  pedirMedio('Pago de la factura de '+(p.nombre||'proveedor')+(p.factura?' ('+p.factura+')':''), (m)=>{ p.medio=m; p.pagada=true; p.fpago=hoy(); guardar(); render(); });
+}
 let vistaProv='facturas';
 const ccAbiertos = new Set();
 function setVistaProv(v){
@@ -2177,9 +2199,8 @@ function agregarPreentrega(){
 function editarPreentrega(id){ const p=db.preentregas.find(x=>x.id===id); if(!p) return; preEditId=id; $('peFecha').value=p.f||hoy(); $('peSoc').value=p.soc||'AT'; $('peDet').value=p.det||''; $('peFactura').value=p.factura||''; $('peMonto').value=p.monto||0; $('peBtn').textContent='Guardar cambios'; }
 function toggleCobradoPre(id){
   const p=db.preentregas.find(x=>x.id===id); if(!p) return;
-  if(!p.cobrado){ p.medio = confirm('¿El cobro fue por BANCO/transferencia?\n\nAceptar = Banco   ·   Cancelar = Efectivo') ? 'Banco' : 'Efectivo'; p.cobrado=true; p.fcobro=hoy(); }
-  else { p.cobrado=false; p.fcobro=''; p.medio=''; }
-  guardar(); renderPreentregas(); render();
+  if(p.cobrado){ p.cobrado=false; p.fcobro=''; p.medio=''; guardar(); renderPreentregas(); render(); return; }
+  pedirMedio('Cobro de: '+(p.det||'preentrega'), (m)=>{ p.medio=m; p.cobrado=true; p.fcobro=hoy(); guardar(); renderPreentregas(); render(); });
 }
 function borrarPreentrega(id){ if(!confirm('¿Eliminar esta preentrega?')) return; db.preentregas=db.preentregas.filter(p=>p.id!==id); guardar(); renderPreentregas(); }
 function renderPreentregas(){
