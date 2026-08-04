@@ -2007,7 +2007,7 @@ function guardarProv(){
   render(); cerrar('vProv'); toast('Factura de proveedor guardada.');
 }
 function borrarProvModal(){ if(provEdit && confirm('¿Eliminar la factura de '+provEdit.nombre+'?')){ db.provs=db.provs.filter(p=>p.id!==provEdit.id); guardar(); render(); cerrar('vProv'); } }
-function togglePagada(id){ const p=db.provs.find(x=>x.id===id); p.pagada=!p.pagada; guardar(); render(); }
+function togglePagada(id){ const p=db.provs.find(x=>x.id===id); if(!p) return; if(!p.pagada){ p.medio = confirm('¿El pago fue por BANCO/transferencia?\n\nAceptar = Banco   ·   Cancelar = Efectivo') ? 'Banco' : 'Efectivo'; p.pagada=true; p.fpago=hoy(); } else { p.pagada=false; p.fpago=''; p.medio=''; } guardar(); render(); }
 let vistaProv='facturas';
 const ccAbiertos = new Set();
 function setVistaProv(v){
@@ -2019,7 +2019,7 @@ function setVistaProv(v){
 function toggleCC(id){ ccAbiertos.has(id)?ccAbiertos.delete(id):ccAbiertos.add(id); const el=document.getElementById(id); if(el) el.classList.toggle('abierto'); }
 function toggleArchCC(id){ const el=document.getElementById('arch_'+id); if(!el) return; el.hidden=!el.hidden; const b=document.getElementById('archbtn_'+id); if(b) b.textContent=(el.hidden?'Ver ':'Ocultar ')+b.dataset.n+' pagada'+(b.dataset.n!=='1'?'s':''); }
 function filaProvCC(p){
-  const est = p.pagada ? ['Pagada','#0e8a5f','#e3f5ee'] : (p.venc&&p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
+  const est = p.pagada ? ['Pagada'+(p.medio?' · '+p.medio:''),'#0e8a5f','#e3f5ee'] : (p.venc&&p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
   return '<tr><td style="width:100px">'+fFecha(p.fecha)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td style="width:100px">'+fFecha(p.venc)+'</td><td class="num">'+money(p.total)+'</td>'+
     '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
     '<td style="white-space:nowrap;text-align:right;width:150px"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?'→ Pendiente':'✓ Pagar')+'</button></td></tr>';
@@ -2072,7 +2072,7 @@ function renderProvCC(){
 let provFiltro='pend';
 function setProvFiltro(v){ provFiltro=v; ['pend','arch','todas'].forEach(x=>{ const b=$('pf'+(x==='pend'?'Pend':x==='arch'?'Arch':'Todas')); if(b) b.classList.toggle('on', x===v); }); renderProvs(); }
 function filaFactura(p){
-  const est = p.pagada ? ['Pagada','#0e8a5f','#e3f5ee'] : (p.venc && p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
+  const est = p.pagada ? ['Pagada'+(p.medio?' · '+p.medio:''),'#0e8a5f','#e3f5ee'] : (p.venc && p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
   const adj = p.adj ? '<span class="chip-adj" style="cursor:pointer" onclick="verAdjuntoProv(\''+p.id+'\')">📎 '+(p.adj.tipo==='pdf'?'PDF':'Foto')+'</span>' : '<span style="color:var(--gris2)">—</span>';
   return '<tr><td><b>'+esc(p.nombre)+'</b></td><td>'+fFecha(p.fecha)+'</td><td>'+fFecha(p.venc)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td>'+adj+'</td><td class="num">'+(p.items?p.items.length:0)+'</td><td class="num">'+money(p.total)+'</td>'+
     '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
@@ -2430,7 +2430,7 @@ function aplicarLapsoConta(){
 function movimientosConta(d0,d1,soc){
   const l = [];
   db.pagos.forEach(p=>l.push({ refId:p.id, f:p.f, soc:socDe(p.ot), tipo:'Ingreso', medio:p.medio||'', cat:'Cobro de orden', det:p.ot+' · '+p.cliente+' ('+p.medio+')', origen:'Facturación', monto:p.monto }));
-  db.provs.forEach(p=>l.push({ refId:p.id, f:p.fecha, soc:p.soc||'', tipo:'Egreso', medio:'', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:p.total }));
+  db.provs.forEach(p=>{ if(p.pagada) l.push({ refId:p.id, f:p.fpago||p.fecha, soc:p.soc||'', tipo:'Egreso', medio:p.medio||'', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:p.total }); });
   db.conta.forEach(c=>l.push({ id:c.id, f:c.f, soc:c.soc||'', tipo:c.tipo, medio:c.medio||'', cat:c.cat, det:c.det, origen:'Manual', monto:c.monto }));
   (db.preentregas||[]).forEach(pe=>{ if(pe.cobrado) l.push({ refId:pe.id, f:pe.fcobro||pe.f, soc:pe.soc||'', tipo:'Ingreso', medio:pe.medio||'', cat:'Preentrega / cobro por fuera', det:pe.det+(pe.factura?' · '+pe.factura:''), origen:'Preentrega', monto:pe.monto }); });
   return l.filter(m=>(!d0 || (m.f||'')>=d0) && (!d1 || (m.f||'')<=d1) && (!soc || m.soc===soc))
