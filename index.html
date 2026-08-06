@@ -1114,11 +1114,13 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <div id="pProvBanco" class="prov-banco" hidden></div>
       <div class="grid3">
         <div class="campo"><label>Nº de factura</label><input id="pFactura" placeholder="A-0001-00001234" style="font-family:var(--mono)"></div>
-        <div class="campo"><label>Total (con IVA)</label><input type="number" id="pTotal" placeholder="0" min="0"></div>
-        <div class="campo"><label>IVA %</label><input type="number" id="pIva" value="21" min="0" title="Para el cálculo de IVA compra en el libro contable"></div>
+        <div class="campo"><label>Total (con IVA)</label><input type="number" id="pTotal" placeholder="0" min="0" oninput="calcPercep()"></div>
+        <div class="campo"><label>IVA %</label><input type="number" id="pIva" value="21" min="0" oninput="calcPercep()" title="Para el cálculo de IVA compra en el libro contable"></div>
       </div>
       <div class="grid3">
         <div class="campo" style="margin:0"><label>Sociedad</label><select id="pSoc"><option value="AT">All Terrain SRL</option><option value="TQ">Terra Quattro SRL</option></select></div>
+        <div class="campo" style="margin:0"><label>Percep. IIBB %</label><input type="number" id="pPercepPct" min="0" step="any" placeholder="0" oninput="calcPercep()" title="% de percepción de Ingresos Brutos que te cobra el proveedor"></div>
+        <div class="campo" style="margin:0"><label>Percep. IIBB $</label><input type="number" id="pPercepMonto" min="0" placeholder="0" title="Monto de la percepción (se calcula solo, ajustable)"></div>
       </div>
       <div class="seccion" style="margin-bottom:0">
         <h4>¿Qué compraste en esta factura?</h4>
@@ -1844,7 +1846,7 @@ function abrirProv(id){
   $('provBorrar').hidden = !provEdit;
   const p = provEdit || {};
   $('pNombre').value = p.nombre||''; $('pProvId').value = p.proveedorId||''; $('pFecha').value = p.fecha||hoy(); $('pVenc').value = p.venc||''; pintarBancoHint();
-  $('pFactura').value = p.factura||''; $('pTotal').value = p.total||''; $('pSoc').value = p.soc||'AT'; $('pIva').value = (p.iva!==undefined&&p.iva!==null)?p.iva:((db.cfg&&db.cfg.ivaDef!==undefined)?db.cfg.ivaDef:21);
+  $('pFactura').value = p.factura||''; $('pTotal').value = p.total||''; $('pSoc').value = p.soc||'AT'; $('pIva').value = (p.iva!==undefined&&p.iva!==null)?p.iva:((db.cfg&&db.cfg.ivaDef!==undefined)?db.cfg.ivaDef:21); $('pPercepPct').value = p.percepPct||''; $('pPercepMonto').value = p.percep||'';
   $('provItems').innerHTML = '';
   (p.items && p.items.length ? p.items : []).forEach(agregarItemProv);
   pintarAdj();
@@ -2012,10 +2014,15 @@ function borrarProvReg(){
     guardar(); cerrar('vProvReg'); if(typeof renderProveedoresCfg==='function') renderProveedoresCfg(); render();
   }
 }
+function calcPercep(){
+  const total=+$('pTotal').value||0, iva=+$('pIva').value||0, pct=+$('pPercepPct').value||0;
+  if(pct>0 && total>0){ const neto=total/(1 + iva/100 + pct/100); $('pPercepMonto').value=Math.round(neto*pct/100); }
+  else if(!pct){ $('pPercepMonto').value=''; }
+}
 function guardarProv(){
   if(!$('pNombre').value.trim()) return toast('Falta el nombre del proveedor.');
   const d = { nombre:$('pNombre').value.trim(), proveedorId:$('pProvId').value||'', fecha:$('pFecha').value||hoy(), venc:$('pVenc').value, soc:$('pSoc').value,
-    factura:$('pFactura').value.trim(), total:+$('pTotal').value||0, iva:($('pIva').value===''?21:+$('pIva').value||0), items:leerItemsProv(), adj:provAdj };
+    factura:$('pFactura').value.trim(), total:+$('pTotal').value||0, iva:($('pIva').value===''?21:+$('pIva').value||0), percepPct:+$('pPercepPct').value||0, percep:+$('pPercepMonto').value||0, items:leerItemsProv(), adj:provAdj };
   if(provEdit){ Object.assign(provEdit, d); }
   else { if(limiteDemo('provs','facturas de proveedor')) return; d.id=uid(); d.pagada=false; db.provs.push(d); }
   try{ guardar(); }catch(e){ toast('Sin espacio local: el adjunto es muy pesado. Quitá el adjunto o exportá un respaldo y limpiá facturas viejas.'); return; }
@@ -2526,18 +2533,22 @@ function renderConta(){
   const comprasP = db.provs.filter(p=>(!d0||(p.fecha||'')>=d0)&&(!d1||(p.fecha||'')<=d1)&&(!socConta||p.soc===socConta));
   const ventasP = db.facturas.filter(f=>(!d0||(f.f||'')>=d0)&&(!d1||(f.f||'')<=d1)&&(!socConta||socDe(f.ot)===socConta));
   const gravaVenta = f => /Factura/i.test(f.tipo||'');
-  const ivaCompra = comprasP.reduce((a,p)=>a+ivaDe(p.total, p.iva),0);
+  const netoProv = p => (p.total||0)/(1 + ((p.iva||0)/100) + ((p.percepPct||0)/100));
+  const ivaDeProv = p => netoProv(p)*((p.iva||0)/100);
+  const ivaCompra = comprasP.reduce((a,p)=>a+ivaDeProv(p),0);
+  const percepTot = comprasP.reduce((a,p)=>a+(p.percep||0),0);
   const ivaVenta = ventasP.reduce((a,f)=>a+(gravaVenta(f)?ivaDe(f.monto, ivaRate):0),0);
   const saldoIva = ivaVenta - ivaCompra;
   if($('ctIva')) $('ctIva').innerHTML =
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">'+
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">'+
       '<div class="kpi"><div class="t">IVA compra (crédito)</div><div class="n" style="color:var(--ok)">'+money(ivaCompra)+'</div><div class="d">'+comprasP.length+' factura'+(comprasP.length!==1?'s':'')+' de compra</div></div>'+
+      '<div class="kpi"><div class="t">Percep. IIBB (crédito)</div><div class="n" style="color:var(--ok)">'+money(percepTot)+'</div><div class="d">retenido por proveedores</div></div>'+
       '<div class="kpi"><div class="t">IVA venta (débito)</div><div class="n" style="color:var(--primario)">'+money(ivaVenta)+'</div><div class="d">'+ventasP.filter(gravaVenta).length+' comprobante'+(ventasP.filter(gravaVenta).length!==1?'s':'')+'</div></div>'+
       '<div class="kpi"><div class="t">'+(saldoIva>=0?'IVA a pagar':'Saldo de IVA a favor')+'</div><div class="n" style="color:'+(saldoIva>=0?'var(--rojo)':'var(--ok)')+'">'+money(Math.abs(saldoIva))+'</div><div class="d">débito − crédito</div></div>'+
     '</div>'+
     '<div class="grid2" style="gap:16px;align-items:start">'+
-      '<div><div style="font-size:11px;font-weight:800;color:var(--ok);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Compras</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Proveedor</th><th class="num">Total</th><th class="num">IVA</th><th></th></tr></thead><tbody>'+
-        (comprasP.length ? comprasP.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(p=>'<tr><td>'+fFecha(p.fecha)+'</td><td>'+esc(p.nombre||'—')+'</td><td class="num">'+money(p.total)+'</td><td class="num">'+money(ivaDe(p.total,p.iva))+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="setVistaProv(\'facturas\');abrirProv(\''+p.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="5" class="vacio">Sin compras en el período.</td></tr>')+
+      '<div><div style="font-size:11px;font-weight:800;color:var(--ok);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Compras</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Proveedor</th><th class="num">Total</th><th class="num">IVA</th><th class="num">Percep.</th><th></th></tr></thead><tbody>'+
+        (comprasP.length ? comprasP.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(p=>'<tr><td>'+fFecha(p.fecha)+'</td><td>'+esc(p.nombre||'—')+'</td><td class="num">'+money(p.total)+'</td><td class="num">'+money(ivaDeProv(p))+'</td><td class="num">'+(p.percep?money(p.percep):'—')+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="setVistaProv(\'facturas\');abrirProv(\''+p.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="6" class="vacio">Sin compras en el período.</td></tr>')+
       '</tbody></table></div></div>'+
       '<div><div style="font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Ventas facturadas</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Total</th><th class="num">IVA</th><th></th></tr></thead><tbody>'+
         (ventasP.length ? ventasP.slice().sort((a,b)=>(b.f||'').localeCompare(a.f||'')).map(f=>'<tr><td>'+fFecha(f.f)+'</td><td>'+esc(f.cliente||f.ot||'—')+'</td><td class="num">'+money(f.monto)+'</td><td class="num">'+money(gravaVenta(f)?ivaDe(f.monto,ivaRate):0)+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="editarFactura(\''+f.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="5" class="vacio">Sin ventas facturadas en el período.</td></tr>')+
