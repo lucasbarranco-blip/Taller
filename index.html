@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07 preentrega-iva -->
+<!-- build 2026-08-07b percep-suma-total -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1122,8 +1122,9 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <div class="grid3">
         <div class="campo" style="margin:0"><label>Sociedad</label><select id="pSoc"><option value="AT">All Terrain SRL</option><option value="TQ">Terra Quattro SRL</option></select></div>
         <div class="campo" style="margin:0"><label>Percep. IIBB %</label><input type="number" id="pPercepPct" min="0" step="any" placeholder="0" oninput="calcPercep()" title="% de percepción de Ingresos Brutos que te cobra el proveedor"></div>
-        <div class="campo" style="margin:0"><label>Percep. IIBB $</label><input type="number" id="pPercepMonto" min="0" placeholder="0" title="Monto de la percepción (se calcula solo, ajustable)"></div>
+        <div class="campo" style="margin:0"><label>Percep. IIBB $</label><input type="number" id="pPercepMonto" placeholder="0" oninput="actualizarTotalProv()" title="Monto de la percepción (se calcula solo, ajustable). Se suma al total."></div>
       </div>
+      <div id="pTotalReal" style="font-size:12px;font-weight:700;color:var(--primario);margin:-4px 2px 8px"></div>
       <div class="seccion" style="margin-bottom:0">
         <h4>¿Qué compraste en esta factura?</h4>
         <div class="itemprov itemhead" style="margin-bottom:4px"><div>Descripción</div><div>Cant.</div><div>Precio unit.</div><div>Subtotal</div><div></div></div>
@@ -1524,7 +1525,7 @@ function renderPanel(){
 
   const lim = new Date(); lim.setDate(lim.getDate()+15);
   const venc = db.provs.filter(p=>!p.pagada && p.venc && new Date(p.venc)<=lim).sort((a,b)=>a.venc.localeCompare(b.venc));
-  $('panelVenc').innerHTML = venc.length ? venc.map(p=>'<tr><td>'+esc(p.nombre)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td><span class="chip sin" style="color:'+(p.venc<hoy()?'#c2372e;background:#fbe9e7':'#a16207;background:#fdf1d7')+'">'+fFecha(p.venc)+'</span></td><td class="num">'+money(p.total)+'</td></tr>').join('') : '<tr><td colspan="4" class="vacio">Nada por vencer en 15 días.</td></tr>';
+  $('panelVenc').innerHTML = venc.length ? venc.map(p=>'<tr><td>'+esc(p.nombre)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td><span class="chip sin" style="color:'+(p.venc<hoy()?'#c2372e;background:#fbe9e7':'#a16207;background:#fdf1d7')+'">'+fFecha(p.venc)+'</span></td><td class="num">'+money(montoProv(p))+'</td></tr>').join('') : '<tr><td colspan="4" class="vacio">Nada por vencer en 15 días.</td></tr>';
 
   const turnosHoy = db.turnos.filter(t=>t.fecha===hoy()).sort((a,b)=>a.hora.localeCompare(b.hora));
   $('panelAgenda').innerHTML = turnosHoy.length ? turnosHoy.map(t=>
@@ -1853,6 +1854,7 @@ function abrirProv(id){
   $('provItems').innerHTML = '';
   (p.items && p.items.length ? p.items : []).forEach(agregarItemProv);
   pintarAdj();
+  actualizarTotalProv();
   $('vProv').classList.add('on');
 }
 function soltarAdj(e){ e.preventDefault(); e.currentTarget.classList.remove('sobre'); const f=e.dataTransfer.files[0]; if(f) cargarAdj(f); }
@@ -2017,10 +2019,20 @@ function borrarProvReg(){
     guardar(); cerrar('vProvReg'); if(typeof renderProveedoresCfg==='function') renderProveedoresCfg(); render();
   }
 }
+// Importe real de una factura de proveedor = mercadería con IVA (total) + percepción IIBB (se suma aparte)
+function montoProv(p){ return (p.total||0) + (p.percep||0); }
 function calcPercep(){
   const total=+$('pTotal').value||0, iva=+$('pIva').value||0, pct=+$('pPercepPct').value||0;
-  if(pct>0 && total>0){ const neto=total/(1 + iva/100 + pct/100); $('pPercepMonto').value=Math.round(neto*pct/100); }
+  // La percepción se calcula sobre el neto gravado (total sin IVA) y se suma por fuera del total.
+  if(pct && total){ const neto=total/(1 + iva/100); $('pPercepMonto').value=Math.round(neto*pct/100); }
   else if(!pct){ $('pPercepMonto').value=''; }
+  actualizarTotalProv();
+}
+// Muestra el total real (mercadería + percepción) como ayuda debajo de los campos
+function actualizarTotalProv(){
+  const el=$('pTotalReal'); if(!el) return;
+  const total=+$('pTotal').value||0, percep=+$('pPercepMonto').value||0;
+  el.textContent = percep ? ('Total a pagar (con percepción): '+money(total+percep)) : '';
 }
 function guardarProv(){
   if(!$('pNombre').value.trim()) return toast('Falta el nombre del proveedor.');
@@ -2052,7 +2064,7 @@ function toggleCC(id){ ccAbiertos.has(id)?ccAbiertos.delete(id):ccAbiertos.add(i
 function toggleArchCC(id){ const el=document.getElementById('arch_'+id); if(!el) return; el.hidden=!el.hidden; const b=document.getElementById('archbtn_'+id); if(b) b.textContent=(el.hidden?'Ver ':'Ocultar ')+b.dataset.n+' pagada'+(b.dataset.n!=='1'?'s':''); }
 function filaProvCC(p){
   const est = p.pagada ? ['Pagada'+(p.medio?' · '+p.medio:''),'#0e8a5f','#e3f5ee'] : (p.venc&&p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
-  return '<tr><td style="width:100px">'+fFecha(p.fecha)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td style="width:100px">'+fFecha(p.venc)+'</td><td class="num">'+money(p.total)+'</td>'+
+  return '<tr><td style="width:100px">'+fFecha(p.fecha)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td style="width:100px">'+fFecha(p.venc)+'</td><td class="num">'+money(montoProv(p))+'</td>'+
     '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
     '<td style="white-space:nowrap;text-align:right;width:150px"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?'→ Pendiente':'✓ Pagar')+'</button></td></tr>';
 }
@@ -2069,10 +2081,10 @@ function renderProvCC(){
     const fs=g[k];
     const pend=fs.filter(p=>!p.pagada).sort((a,b)=>(a.venc||a.fecha||'').localeCompare(b.venc||b.fecha||''));
     const pagadas=fs.filter(p=>p.pagada).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-    const facturado=fs.reduce((a,p)=>a+(p.total||0),0);
-    const saldo=pend.reduce((a,p)=>a+(p.total||0),0);
+    const facturado=fs.reduce((a,p)=>a+montoProv(p),0);
+    const saldo=pend.reduce((a,p)=>a+montoProv(p),0);
     const vencidas=pend.filter(p=>p.venc&&p.venc<hoy());
-    const vencido=vencidas.reduce((a,p)=>a+(p.total||0),0);
+    const vencido=vencidas.reduce((a,p)=>a+montoProv(p),0);
     const prox=pend.filter(p=>p.venc).map(p=>p.venc).sort()[0];
     const gid='cc_'+ix;
     if(ccAbiertos.size===0 && claves.length===1) ccAbiertos.add(gid);
@@ -2106,7 +2118,7 @@ function setProvFiltro(v){ provFiltro=v; ['pend','arch','todas'].forEach(x=>{ co
 function filaFactura(p){
   const est = p.pagada ? ['Pagada'+(p.medio?' · '+p.medio:''),'#0e8a5f','#e3f5ee'] : (p.venc && p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
   const adj = p.adj ? '<span class="chip-adj" style="cursor:pointer" onclick="verAdjuntoProv(\''+p.id+'\')">📎 '+(p.adj.tipo==='pdf'?'PDF':'Foto')+'</span>' : '<span style="color:var(--gris2)">—</span>';
-  return '<tr><td><b>'+esc(p.nombre)+'</b></td><td>'+fFecha(p.fecha)+'</td><td>'+fFecha(p.venc)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td>'+adj+'</td><td class="num">'+(p.items?p.items.length:0)+'</td><td class="num">'+money(p.total)+'</td>'+
+  return '<tr><td><b>'+esc(p.nombre)+'</b></td><td>'+fFecha(p.fecha)+'</td><td>'+fFecha(p.venc)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td>'+adj+'</td><td class="num">'+(p.items?p.items.length:0)+'</td><td class="num">'+money(montoProv(p))+'</td>'+
     '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
     '<td style="white-space:nowrap"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver detalle</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?'→ Pendiente':'✓ Pagada')+'</button></td></tr>';
 }
@@ -2122,7 +2134,7 @@ function renderProvs(){
     const claves=Object.keys(g).sort((a,b)=>a.localeCompare(b));
     filas = claves.map(k=>{
       const arr=g[k].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-      const tot=arr.reduce((a,p)=>a+(p.total||0),0);
+      const tot=arr.reduce((a,p)=>a+montoProv(p),0);
       return '<tr style="background:#f4f5f7"><td colspan="6" style="font-weight:800">'+esc(k)+' <span style="color:var(--gris2);font-weight:600;font-size:12px">· '+arr.length+' factura'+(arr.length!==1?'s':'')+'</span></td><td class="num" style="font-weight:800">'+money(tot)+'</td><td colspan="2"></td></tr>'+
         arr.map(filaFactura).join('');
     }).join('');
@@ -2462,7 +2474,7 @@ function aplicarLapsoConta(){
 function movimientosConta(d0,d1,soc){
   const l = [];
   db.pagos.forEach(p=>l.push({ refId:p.id, f:p.f, soc:socDe(p.ot), tipo:'Ingreso', medio:p.medio||'', cat:'Cobro de orden', det:p.ot+' · '+p.cliente+' ('+p.medio+')', origen:'Facturación', monto:p.monto }));
-  db.provs.forEach(p=>{ if(p.pagada) l.push({ refId:p.id, f:p.fpago||p.fecha, soc:p.soc||'', tipo:'Egreso', medio:p.medio||'', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:p.total }); });
+  db.provs.forEach(p=>{ if(p.pagada) l.push({ refId:p.id, f:p.fpago||p.fecha, soc:p.soc||'', tipo:'Egreso', medio:p.medio||'', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:montoProv(p) }); });
   db.conta.forEach(c=>l.push({ id:c.id, f:c.f, soc:c.soc||'', tipo:c.tipo, medio:c.medio||'', cat:c.cat, det:c.det, origen:'Manual', monto:c.monto }));
   (db.preentregas||[]).forEach(pe=>{ if(pe.cobrado) l.push({ refId:pe.id, f:pe.fcobro||pe.f, soc:pe.soc||'', tipo:'Ingreso', medio:pe.medio||'', cat:'Preentrega / cobro por fuera', det:pe.det+(pe.factura?' · '+pe.factura:''), origen:'Preentrega', monto:pe.monto }); });
   return l.filter(m=>(!d0 || (m.f||'')>=d0) && (!d1 || (m.f||'')<=d1) && (!soc || m.soc===soc))
@@ -2539,7 +2551,7 @@ function renderConta(){
   const gravaVenta = f => /Factura/i.test(f.tipo||'');
   // Preentregas facturadas: entran al IVA débito por su fecha de facturación (fFact), estén cobradas o no.
   const preVentasP = (db.preentregas||[]).filter(pe=>pe.fFact && (!d0||pe.fFact>=d0) && (!d1||pe.fFact<=d1) && (!socConta||pe.soc===socConta));
-  const netoProv = p => (p.total||0)/(1 + ((p.iva||0)/100) + ((p.percepPct||0)/100));
+  const netoProv = p => (p.total||0)/(1 + ((p.iva||0)/100));
   const ivaDeProv = p => netoProv(p)*((p.iva||0)/100);
   const ivaCompra = comprasP.reduce((a,p)=>a+ivaDeProv(p),0);
   const percepTot = comprasP.reduce((a,p)=>a+(p.percep||0),0);
@@ -2561,7 +2573,7 @@ function renderConta(){
     '</div>'+
     '<div class="grid2" style="gap:16px;align-items:start">'+
       '<div><div style="font-size:11px;font-weight:800;color:var(--ok);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Compras</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Proveedor</th><th class="num">Total</th><th class="num">IVA</th><th class="num">Percep.</th><th></th></tr></thead><tbody>'+
-        (comprasP.length ? comprasP.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(p=>'<tr><td>'+fFecha(p.fecha)+'</td><td>'+esc(p.nombre||'—')+'</td><td class="num">'+money(p.total)+'</td><td class="num">'+money(ivaDeProv(p))+'</td><td class="num">'+(p.percep?money(p.percep):'—')+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="setVistaProv(\'facturas\');abrirProv(\''+p.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="6" class="vacio">Sin compras en el período.</td></tr>')+
+        (comprasP.length ? comprasP.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(p=>'<tr><td>'+fFecha(p.fecha)+'</td><td>'+esc(p.nombre||'—')+'</td><td class="num">'+money(montoProv(p))+'</td><td class="num">'+money(ivaDeProv(p))+'</td><td class="num">'+(p.percep?money(p.percep):'—')+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="setVistaProv(\'facturas\');abrirProv(\''+p.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="6" class="vacio">Sin compras en el período.</td></tr>')+
       '</tbody></table></div></div>'+
       '<div><div style="font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Ventas facturadas</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Total</th><th class="num">IVA</th><th></th></tr></thead><tbody>'+
         (filasVenta.length ? filasVenta.map(f=>'<tr><td>'+fFecha(f.f)+'</td><td>'+f.cli+'</td><td class="num">'+money(f.monto)+'</td><td class="num">'+money(f.iva)+'</td><td style="text-align:right">'+f.btn+'</td></tr>').join('') : '<tr><td colspan="5" class="vacio">Sin ventas facturadas en el período.</td></tr>')+
