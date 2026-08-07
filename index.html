@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07c sync-merge -->
+<!-- build 2026-08-07d sync-merge-fix -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1297,7 +1297,7 @@ function _mergeArr(localArr, remoteArr, tomb){
   const byId={};
   (localArr||[]).forEach(r=>{ if(r&&r.id!=null) byId[r.id]=r; });
   (remoteArr||[]).forEach(r=>{ if(!r||r.id==null) return; const ex=byId[r.id]; if(!ex || (r._m||0)>(ex._m||0)) byId[r.id]=r; });
-  const out=[]; for(const id in byId){ const r=byId[id]; if((tomb[id]||0) >= (r._m||0)) continue; out.push(r); }
+  const out=[]; for(const id in byId){ const r=byId[id]; const t=tomb[id]; if(t && t >= (r._m||0)) continue; out.push(r); }
   return out;
 }
 function mergeDB(L, R){
