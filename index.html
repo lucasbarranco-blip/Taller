@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-06b percep-iibb -->
+<!-- build 2026-08-07 preentrega-iva -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -495,7 +495,8 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
     <div class="cab-box" style="flex-wrap:wrap;gap:8px"><div><h3>Preentregas y cobros por fuera</h3><span style="display:block;font-size:11px;color:var(--gris2);margin-top:1px;font-weight:500">Trabajos sin cliente (0km a entregar, etc.) que facturás aparte. Al marcarlos cobrados entran al libro contable.</span></div><div id="prePendTot" style="font-family:var(--mono);font-weight:700;color:var(--rojo)"></div></div>
     <div style="padding:12px 18px 4px">
       <div class="toolbar" style="margin:0">
-        <div class="f"><label>Fecha</label><input type="date" id="peFecha"></div>
+        <div class="f"><label>Entrega</label><input type="date" id="peFecha"></div>
+        <div class="f"><label>Fecha factura</label><input type="date" id="peFFact" title="Fecha en que emitiste la factura. El IVA débito se computa en este mes."></div>
         <div class="f"><label>Sociedad</label><select id="peSoc"><option value="AT">All Terrain</option><option value="TQ">Terra Quattro</option></select></div>
         <div class="f crecer"><label>Detalle</label><input id="peDet" placeholder="Preentrega Toyota Hilux 0km — dominio AB-123-CD"></div>
         <div class="f"><label>N° factura</label><input id="peFactura" placeholder="A-0001-…" style="font-family:var(--mono)"></div>
@@ -504,7 +505,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       </div>
     </div>
     <div class="scrollx"><table>
-      <thead><tr><th>Fecha</th><th>Sociedad</th><th>Detalle</th><th>Factura</th><th class="num">Monto</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Entrega</th><th>F. factura</th><th>Sociedad</th><th>Detalle</th><th>Factura</th><th class="num">Monto</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tbPreentregas"></tbody>
     </table></div>
   </div>
@@ -1272,6 +1273,7 @@ function normalizarDB(){
   db.ots=db.ots||[]; db.provs=db.provs||[]; db.inv=db.inv||[]; db.movs=db.movs||[];
   db.pagos=db.pagos||[]; db.facturas=db.facturas||[]; db.turnos=db.turnos||[]; db.conta=db.conta||[]; db.proveedores=db.proveedores||[]; db.preentregas=db.preentregas||[];
   db.clientes=db.clientes||[]; db.tareas=db.tareas||[]; db.provPagos=db.provPagos||[];
+  db.preentregas.forEach(pe=>{ if(pe.fFact===undefined) pe.fFact = pe.f||''; });
   db.cfg=db.cfg||{}; db.cfg.AT=db.cfg.AT||{rz:'ALL TERRAIN SRL',sub:'4X4 SERVICE · EST. 1991',cuit:'',dir:'',tel:'',mail:''};
   db.cfg.TQ=db.cfg.TQ||{rz:'TERRA QUATTRO SRL',sub:'GWM',cuit:'',dir:'',tel:'',mail:''};
   db.cfg.ia=db.cfg.ia||'';
@@ -2197,14 +2199,15 @@ function agregarPreentrega(){
   const monto=+$('peMonto').value||0, det=$('peDet').value.trim();
   if(!monto) return toast('Falta el monto.');
   if(!det) return toast('Poné un detalle (qué trabajo/vehículo es).');
-  const d={ f:$('peFecha').value||hoy(), soc:$('peSoc').value, det, factura:$('peFactura').value.trim(), monto };
+  const fEntrega=$('peFecha').value||hoy();
+  const d={ f:fEntrega, fFact:($('peFFact').value||fEntrega), soc:$('peSoc').value, det, factura:$('peFactura').value.trim(), monto };
   db.preentregas=db.preentregas||[];
   if(preEditId){ const x=db.preentregas.find(p=>p.id===preEditId); if(x) Object.assign(x,d); preEditId=null; $('peBtn').textContent='+ Registrar'; }
   else { d.id=uid(); d.cobrado=false; db.preentregas.push(d); }
-  ['peDet','peFactura','peMonto'].forEach(i=>$(i).value='');
+  ['peDet','peFactura','peMonto','peFFact'].forEach(i=>$(i).value='');
   guardar(); renderPreentregas(); toast('Preentrega registrada.');
 }
-function editarPreentrega(id){ const p=db.preentregas.find(x=>x.id===id); if(!p) return; preEditId=id; $('peFecha').value=p.f||hoy(); $('peSoc').value=p.soc||'AT'; $('peDet').value=p.det||''; $('peFactura').value=p.factura||''; $('peMonto').value=p.monto||0; $('peBtn').textContent='Guardar cambios'; }
+function editarPreentrega(id){ const p=db.preentregas.find(x=>x.id===id); if(!p) return; preEditId=id; $('peFecha').value=p.f||hoy(); $('peFFact').value=p.fFact||p.f||''; $('peSoc').value=p.soc||'AT'; $('peDet').value=p.det||''; $('peFactura').value=p.factura||''; $('peMonto').value=p.monto||0; $('peBtn').textContent='Guardar cambios'; try{$('boxPreentregas').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){} }
 function toggleCobradoPre(id){
   const p=db.preentregas.find(x=>x.id===id); if(!p) return;
   if(p.cobrado){ p.cobrado=false; p.fcobro=''; p.medio=''; guardar(); renderPreentregas(); render(); return; }
@@ -2220,10 +2223,10 @@ function renderPreentregas(){
   if($('prePendTot')) $('prePendTot').textContent = pend>0 ? ('Pendiente de cobro: '+money(pend)) : 'Todo cobrado';
   $('tbPreentregas').innerHTML = l.length ? l.map(p=>{
     const est = p.cobrado ? ['Cobrado','#0e8a5f','#e3f5ee'] : ['Pendiente','#a16207','#fdf1d7'];
-    return '<tr'+(p.cobrado?' style="opacity:.65"':'')+'><td>'+fFecha(p.f)+'</td><td style="font-size:12px;font-weight:600;color:var(--gris)">'+(socNombre[p.soc]||'—')+'</td><td>'+esc(p.det)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td class="num">'+money(p.monto)+'</td>'+
+    return '<tr'+(p.cobrado?' style="opacity:.65"':'')+'><td>'+fFecha(p.f)+'</td><td>'+fFecha(p.fFact||p.f)+'</td><td style="font-size:12px;font-weight:600;color:var(--gris)">'+(socNombre[p.soc]||'—')+'</td><td>'+esc(p.det)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td class="num">'+money(p.monto)+'</td>'+
       '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+(p.cobrado&&p.medio?' · '+esc(p.medio):'')+'</span></td>'+
       '<td style="white-space:nowrap;text-align:right"><button class="btn blanco mini" onclick="toggleCobradoPre(\''+p.id+'\')">'+(p.cobrado?'→ Pendiente':'✓ Cobrado')+'</button> <button class="btn blanco mini" onclick="editarPreentrega(\''+p.id+'\')">Editar</button> <button class="btn rojo mini" onclick="borrarPreentrega(\''+p.id+'\')">×</button></td></tr>';
-  }).join('') : '<tr><td colspan="7" class="vacio">Sin preentregas cargadas. Registrá acá los trabajos por fuera (0km, etc.) que facturás sin cliente.</td></tr>';
+  }).join('') : '<tr><td colspan="8" class="vacio">Sin preentregas cargadas. Registrá acá los trabajos por fuera (0km, etc.) que facturás sin cliente.</td></tr>';
 }
 function renderFact(){
   renderPreentregas();
@@ -2534,17 +2537,26 @@ function renderConta(){
   const comprasP = db.provs.filter(p=>(!d0||(p.fecha||'')>=d0)&&(!d1||(p.fecha||'')<=d1)&&(!socConta||p.soc===socConta));
   const ventasP = db.facturas.filter(f=>(!d0||(f.f||'')>=d0)&&(!d1||(f.f||'')<=d1)&&(!socConta||socDe(f.ot)===socConta));
   const gravaVenta = f => /Factura/i.test(f.tipo||'');
+  // Preentregas facturadas: entran al IVA débito por su fecha de facturación (fFact), estén cobradas o no.
+  const preVentasP = (db.preentregas||[]).filter(pe=>pe.fFact && (!d0||pe.fFact>=d0) && (!d1||pe.fFact<=d1) && (!socConta||pe.soc===socConta));
   const netoProv = p => (p.total||0)/(1 + ((p.iva||0)/100) + ((p.percepPct||0)/100));
   const ivaDeProv = p => netoProv(p)*((p.iva||0)/100);
   const ivaCompra = comprasP.reduce((a,p)=>a+ivaDeProv(p),0);
   const percepTot = comprasP.reduce((a,p)=>a+(p.percep||0),0);
-  const ivaVenta = ventasP.reduce((a,f)=>a+(gravaVenta(f)?ivaDe(f.monto, ivaRate):0),0);
+  const ivaVenta = ventasP.reduce((a,f)=>a+(gravaVenta(f)?ivaDe(f.monto, ivaRate):0),0)
+                 + preVentasP.reduce((a,pe)=>a+ivaDe(pe.monto, ivaRate),0);
+  const nVentaComprob = ventasP.filter(gravaVenta).length + preVentasP.length;
+  // filas combinadas para la tabla de Ventas facturadas (facturas de OT + preentregas facturadas)
+  const filasVenta = [
+    ...ventasP.map(f=>({ f:f.f, cli:esc(f.cliente||f.ot||'—'), monto:f.monto, iva:(gravaVenta(f)?ivaDe(f.monto,ivaRate):0), btn:'<button class="btn blanco mini" onclick="editarFactura(\''+f.id+'\')">Editar</button>' })),
+    ...preVentasP.map(pe=>({ f:(pe.fFact||pe.f), cli:(esc(pe.det||'Preentrega')+(pe.factura?' · '+esc(pe.factura):'')+' <span style="color:var(--gris2);font-size:10px">(preentrega)</span>'), monto:pe.monto, iva:ivaDe(pe.monto,ivaRate), btn:'<button class="btn blanco mini" onclick="irTab(\'facturacion\');editarPreentrega(\''+pe.id+'\')">Editar</button>' }))
+  ].sort((a,b)=>(b.f||'').localeCompare(a.f||''));
   const saldoIva = ivaVenta - ivaCompra;
   if($('ctIva')) $('ctIva').innerHTML =
     '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">'+
       '<div class="kpi"><div class="t">IVA compra (crédito)</div><div class="n" style="color:var(--ok)">'+money(ivaCompra)+'</div><div class="d">'+comprasP.length+' factura'+(comprasP.length!==1?'s':'')+' de compra</div></div>'+
       '<div class="kpi"><div class="t">Percep. IIBB (crédito)</div><div class="n" style="color:var(--ok)">'+money(percepTot)+'</div><div class="d">retenido por proveedores</div></div>'+
-      '<div class="kpi"><div class="t">IVA venta (débito)</div><div class="n" style="color:var(--primario)">'+money(ivaVenta)+'</div><div class="d">'+ventasP.filter(gravaVenta).length+' comprobante'+(ventasP.filter(gravaVenta).length!==1?'s':'')+'</div></div>'+
+      '<div class="kpi"><div class="t">IVA venta (débito)</div><div class="n" style="color:var(--primario)">'+money(ivaVenta)+'</div><div class="d">'+nVentaComprob+' comprobante'+(nVentaComprob!==1?'s':'')+'</div></div>'+
       '<div class="kpi"><div class="t">'+(saldoIva>=0?'IVA a pagar':'Saldo de IVA a favor')+'</div><div class="n" style="color:'+(saldoIva>=0?'var(--rojo)':'var(--ok)')+'">'+money(Math.abs(saldoIva))+'</div><div class="d">débito − crédito</div></div>'+
     '</div>'+
     '<div class="grid2" style="gap:16px;align-items:start">'+
@@ -2552,7 +2564,7 @@ function renderConta(){
         (comprasP.length ? comprasP.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(p=>'<tr><td>'+fFecha(p.fecha)+'</td><td>'+esc(p.nombre||'—')+'</td><td class="num">'+money(p.total)+'</td><td class="num">'+money(ivaDeProv(p))+'</td><td class="num">'+(p.percep?money(p.percep):'—')+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="setVistaProv(\'facturas\');abrirProv(\''+p.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="6" class="vacio">Sin compras en el período.</td></tr>')+
       '</tbody></table></div></div>'+
       '<div><div style="font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Ventas facturadas</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Total</th><th class="num">IVA</th><th></th></tr></thead><tbody>'+
-        (ventasP.length ? ventasP.slice().sort((a,b)=>(b.f||'').localeCompare(a.f||'')).map(f=>'<tr><td>'+fFecha(f.f)+'</td><td>'+esc(f.cliente||f.ot||'—')+'</td><td class="num">'+money(f.monto)+'</td><td class="num">'+money(gravaVenta(f)?ivaDe(f.monto,ivaRate):0)+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="editarFactura(\''+f.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="5" class="vacio">Sin ventas facturadas en el período.</td></tr>')+
+        (filasVenta.length ? filasVenta.map(f=>'<tr><td>'+fFecha(f.f)+'</td><td>'+f.cli+'</td><td class="num">'+money(f.monto)+'</td><td class="num">'+money(f.iva)+'</td><td style="text-align:right">'+f.btn+'</td></tr>').join('') : '<tr><td colspan="5" class="vacio">Sin ventas facturadas en el período.</td></tr>')+
       '</tbody></table></div></div>'+
     '</div>';
   llenarCats();
