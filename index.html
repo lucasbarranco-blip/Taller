@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07b percep-suma-total -->
+<!-- build 2026-08-07c sync-merge -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1270,6 +1270,54 @@ if(!db){
             TQ:{rz:'TERRA QUATTRO SRL',sub:'GWM',cuit:'',dir:'',tel:'',mail:''} } };
   }
 }
+/* ===== Motor de sincronización con fusión registro por registro =====
+   Antes la nube guardaba TODO como un bloque y ganaba la última compu que grababa
+   (se pisaban los cambios entre computadoras). Ahora cada registro lleva marca de
+   tiempo (_m) y al recibir cambios remotos se fusiona por id: gana el más nuevo de
+   CADA registro, así dos compus editando órdenes distintas ya no se pisan.
+   Las bajas se registran como tumbas (_tomb: id->timestamp). */
+const SYNC_COLS=['ots','clientes','provs','proveedores','inv','tareas','turnos','conta','pagos','facturas','preentregas','provPagos','movs'];
+let _syncSnap=null, _applyingRemote=false;
+function _hashStr(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h*33)^s.charCodeAt(i))>>>0; } return h.toString(36); }
+function _stripVol(r){ const c={}; for(const k in r){ if(k==='_m'||k==='adj'||k==='_adjLocal') continue; c[k]=r[k]; } return c; }
+function _recSig(r){ try{ return _hashStr(JSON.stringify(_stripVol(r))); }catch(e){ return '0'; } }
+function _buildSnap(){ const s={ _cfg: JSON.stringify(db.cfg||{}) }; SYNC_COLS.forEach(col=>{ const m={}; (db[col]||[]).forEach(r=>{ if(r&&r.id!=null) m[r.id]=_recSig(r); }); s[col]=m; }); return s; }
+function _stampChanges(){
+  const now=Date.now(); db._tomb=db._tomb||{};
+  if(_syncSnap===null){ _syncSnap=_buildSnap(); return; }
+  SYNC_COLS.forEach(col=>{
+    const arr=db[col]||[], prev=_syncSnap[col]||{}, seen={};
+    arr.forEach(r=>{ if(!r||r.id==null) return; seen[r.id]=1; const sig=_recSig(r); if(prev[r.id]===undefined||prev[r.id]!==sig){ r._m=now; } });
+    Object.keys(prev).forEach(id=>{ if(!seen[id]) db._tomb[id]=now; });
+  });
+  const cfgJ=JSON.stringify(db.cfg||{}); if(_syncSnap._cfg!==undefined && _syncSnap._cfg!==cfgJ){ db._cfgM=now; }
+  _syncSnap=_buildSnap();
+}
+function _mergeArr(localArr, remoteArr, tomb){
+  const byId={};
+  (localArr||[]).forEach(r=>{ if(r&&r.id!=null) byId[r.id]=r; });
+  (remoteArr||[]).forEach(r=>{ if(!r||r.id==null) return; const ex=byId[r.id]; if(!ex || (r._m||0)>(ex._m||0)) byId[r.id]=r; });
+  const out=[]; for(const id in byId){ const r=byId[id]; if((tomb[id]||0) >= (r._m||0)) continue; out.push(r); }
+  return out;
+}
+function mergeDB(L, R){
+  L=L||{}; R=R||{};
+  const tomb={}, lt=L._tomb||{}, rt=R._tomb||{};
+  for(const id in lt) tomb[id]=Math.max(tomb[id]||0, lt[id]);
+  for(const id in rt) tomb[id]=Math.max(tomb[id]||0, rt[id]);
+  const out={}; for(const k in L) out[k]=L[k];
+  SYNC_COLS.forEach(col=>{ out[col]=_mergeArr(L[col], R[col], tomb); });
+  out._tomb=tomb;
+  const lc=L._cfgM||0, rc=R._cfgM||0;
+  out.cfg = rc>lc ? (R.cfg||L.cfg) : (L.cfg||R.cfg);
+  out._cfgM=Math.max(lc,rc);
+  const seq={}, ls=L.seq||{}, rs=R.seq||{};
+  Object.keys(ls).concat(Object.keys(rs)).forEach(k=>{ seq[k]=Math.max(ls[k]||0, rs[k]||0); });
+  out.seq=seq;
+  return out;
+}
+function sigDB(d){ const parts=[]; SYNC_COLS.forEach(col=>{ const ids=(d[col]||[]).filter(r=>r&&r.id!=null).map(r=>r.id+':'+(r._m||0)).sort(); parts.push(col+'='+ids.join(',')); }); parts.push('cfgM='+(d._cfgM||0)); parts.push('tomb='+Object.keys(d._tomb||{}).sort().map(id=>id+':'+d._tomb[id]).join(',')); parts.push('seq='+JSON.stringify(d.seq||{})); return parts.join('|'); }
+
 function normalizarDB(){
   db.ots=db.ots||[]; db.provs=db.provs||[]; db.inv=db.inv||[]; db.movs=db.movs||[];
   db.pagos=db.pagos||[]; db.facturas=db.facturas||[]; db.turnos=db.turnos||[]; db.conta=db.conta||[]; db.proveedores=db.proveedores||[]; db.preentregas=db.preentregas||[];
@@ -1283,9 +1331,15 @@ function normalizarDB(){
   db.seq=db.seq||{AT:0,TQ:0};
   (db.pagos||[]).forEach(p=>{ if(!p.id) p.id=uid(); });
   (db.facturas||[]).forEach(f=>{ if(!f.id) f.id=uid(); });
+  // Sync merge: garantizar id en TODO registro (deterministas para los que no lo tenían, ej. movimientos de stock) e inicializar metadatos de fusión
+  db._tomb = db._tomb || {};
+  if(db._cfgM===undefined) db._cfgM = 0;
+  SYNC_COLS.forEach(col=>{ (db[col]||[]).forEach((r,i)=>{ if(r && (r.id===undefined||r.id===''||r.id===null)) r.id = 'leg_'+col+'_'+i+'_'+_recSig(r); }); });
 }
 normalizarDB();
+_syncSnap=_buildSnap(); // línea base para que el PRIMER cambio ya quede marcado con su timestamp
 function guardar(){
+  if(!_applyingRemote){ try{ _stampChanges(); }catch(e){ console.warn('stamp', e); } }
   try{ localStorage.setItem(CLAVE, JSON.stringify(db)); }catch(e){ console.warn('localStorage lleno', e); }
   if(typeof syncPush==='function') syncPush();
 }
@@ -2163,7 +2217,7 @@ function guardarInv(){
     prov:$('iProv').value.trim(), unidad:$('iUnidad').value||'Unidad', min:+$('iMin').value||0, costo:+$('iCosto').value||0, precio:+$('iPrecio').value||0 };
   if(invEdit){ Object.assign(invEdit, d); }
   else { d.id=uid(); d.stock=+$('iStock').value||0; db.inv.push(d);
-    if(d.stock) db.movs.push({ f:hoy(), tipo:'Ingreso', sku:d.sku, prod:d.prod, cant:d.stock, ref:'Stock inicial' }); }
+    if(d.stock) db.movs.push({ id:uid(), f:hoy(), tipo:'Ingreso', sku:d.sku, prod:d.prod, cant:d.stock, ref:'Stock inicial' }); }
   guardar(); render(); cerrar('vInv'); toast('Producto guardado.');
 }
 function borrarInv(){ if(invEdit && confirm('¿Eliminar '+invEdit.prod+'?')){ db.inv=db.inv.filter(i=>i.id!==invEdit.id); guardar(); render(); cerrar('vInv'); } }
@@ -2177,7 +2231,7 @@ function confirmarMov(){
   if(cant<1) return toast('Cantidad inválida.');
   if(tipo==='Egreso' && cant>p.stock) return toast('No hay stock suficiente ('+p.stock+').');
   p.stock += tipo==='Ingreso' ? cant : -cant;
-  db.movs.push({ f:hoy(), tipo, sku:p.sku, prod:p.prod, cant, ref:$('movRef').value.trim() });
+  db.movs.push({ id:uid(), f:hoy(), tipo, sku:p.sku, prod:p.prod, cant, ref:$('movRef').value.trim() });
   guardar(); render(); cerrar('vMov'); toast(tipo+' registrado. Stock: '+p.stock);
 }
 function verMovs(){
@@ -2355,7 +2409,7 @@ function confirmarPago(){
     if(!it.invId) return;
     const p = db.inv.find(i=>i.id===it.invId); if(!p) return;
     const egr = Math.min(p.stock, it.cant);
-    if(egr>0){ p.stock -= egr; db.movs.push({ f:hoy(), tipo:'Egreso', sku:p.sku, prod:p.prod, cant:egr, ref:'Venta '+pagoOT.numero }); }
+    if(egr>0){ p.stock -= egr; db.movs.push({ id:uid(), f:hoy(), tipo:'Egreso', sku:p.sku, prod:p.prod, cant:egr, ref:'Venta '+pagoOT.numero }); }
   });
   pagoOT.estado = 'Pagado'; pagoOT.fechaPago = hoy();
   db.pagos.push({ id:uid(), f:hoy(), ot:pagoOT.numero, cliente:pagoOT.cliente, medio:$('cMedio').value, monto:+$('cMonto').value||0 });
@@ -3041,11 +3095,17 @@ function initSync(){
       const cont = o => (o.ots||[]).length+(o.clientes||[]).length+(o.provs||[]).length+(o.inv||[]).length+(o.tareas||[]).length+(o.turnos||[]).length+(o.conta||[]).length+(o.pagos||[]).length+(o.facturas||[]).length+(o.movs||[]).length+(o.preentregas||[]).length;
       if(cont(data.db)===0 && cont(db)>0){ pushNow(); setSyncEstado('on'); return; }
       const adjLocal={}; (db.provs||[]).forEach(p=>{ if(p.adj) adjLocal[p.id]=p.adj; });
-      aplicandoRemoto=true;
-      db=data.db; normalizarDB();
+      aplicandoRemoto=true; _applyingRemote=true;
+      // FUSIÓN registro por registro (antes se pisaba: db=data.db)
+      const remote=data.db;
+      const merged=mergeDB(db, remote);
+      db=merged; normalizarDB();
       db.provs.forEach(p=>{ if(!p.adj && adjLocal[p.id]) p.adj=adjLocal[p.id]; });
       try{ localStorage.setItem(CLAVE, JSON.stringify(db)); }catch(e){}
-      aplicandoRemoto=false;
+      _syncSnap=_buildSnap();
+      aplicandoRemoto=false; _applyingRemote=false;
+      // Si nuestra fusión tiene algo que el remoto no tenía, subimos para que converjan todas las compus
+      if(sigDB(merged)!==sigDB(remote)) pushNow();
       if(hayModalAbierto()) pendienteRender=true; else render();
       setSyncEstado('on');
     }, err=>{ console.error('sync', err); setSyncEstado('error'); clearTimeout(reconTimer); reconTimer=setTimeout(reconectarSync, 4000); });
