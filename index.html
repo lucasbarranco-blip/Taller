@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07e arca-facturacion -->
+<!-- build 2026-08-07f arca-pdf-ver -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2487,6 +2487,7 @@ async function confirmarFactura(){
   factOT.fechaFactura = hoy();
   guardar(); render(); cerrar('vFacturar');
   toast(arcaData ? ('✓ Factura ARCA emitida — CAE '+arcaData.cae) : ('Facturada sin ARCA. Orden '+($('fCerrar').checked?'terminada.':'en estado Facturado.')));
+  if(arcaData){ setTimeout(()=>verPDF(factOT, 'cliente'), 300); }
 }
 function terminarOT(id){ const o=db.ots.find(x=>x.id===id); o.estado='Terminado'; guardar(); render(); toast('Orden '+o.numero+' terminada.'); }
 
@@ -2859,7 +2860,7 @@ function imprimirHoja(){
   else if(img && img.decode){ img.decode().then(go).catch(go); }
   else go();
 }
-function pdfDirecto(id, modo){ const g=otEdit; const o=db.ots.find(x=>x.id===id); armarHoja(o, modo); imprimirHoja(); otEdit=g; }
+function pdfDirecto(id, modo){ const o=db.ots.find(x=>x.id===id); if(o) verPDF(o, modo); }
 function otDesdeModal(){
   return { soc:$('otSoc').value, numero: otEdit ? otEdit.numero : '(BORRADOR)', fecha:$('otFecha').value||hoy(),
     cliente:$('otCliente').value, celu:$('otCelu').value, email:$('otEmail').value,
@@ -2934,6 +2935,33 @@ async function generarPDFArchivo(o, modo){
   pdf.addImage(imgData,'JPEG',(pw-w)/2,0,w,h);
   const nombre='Presupuesto-'+String(o.numero||'').replace(/[^\w-]/g,'')+'.pdf';
   return { blob:pdf.output('blob'), datauri:pdf.output('datauristring'), nombre };
+}
+// ===== Ver / descargar el PDF EN PANTALLA (sin ventana de impresión) =====
+async function verPDF(o, modo){
+  toast('Generando el PDF…');
+  let arch;
+  try{ arch = await generarPDFArchivo(o, modo); }
+  catch(e){ console.error('pdf', e); return toast('No se pudo generar el PDF.', 6000); }
+  const esFact = modo==='cliente' && o.arca && o.arca.cae;
+  const nombre = esFact
+    ? ('Factura-'+String(o.arca.ptoVta).padStart(4,'0')+'-'+String(o.arca.nro).padStart(8,'0')+'.pdf')
+    : arch.nombre;
+  const titulo = esFact
+    ? ((CBTE_LABEL[o.arca.cbteTipo]||'Factura')+' '+String(o.arca.ptoVta).padStart(4,'0')+'-'+String(o.arca.nro).padStart(8,'0'))
+    : nombre;
+  const url = URL.createObjectURL(arch.blob);
+  const ov = document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:100000;background:#111318;display:flex;flex-direction:column;padding:12px;gap:10px;font-family:Inter,system-ui,sans-serif';
+  ov.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px">'+
+      '<div style="width:8px;height:26px;background:#d81e2c;border-radius:2px"></div>'+
+      '<b style="font-family:Archivo,sans-serif;font-weight:900;font-size:16px;color:#fff;flex:1;text-align:left">'+esc(titulo)+'</b>'+
+      '<a href="'+url+'" download="'+esc(nombre)+'" style="background:#d81e2c;color:#fff;text-decoration:none;font-weight:800;padding:10px 16px;border-radius:9px;font-size:13px">⬇ Descargar</a>'+
+      '<button type="button" style="background:#2a2f3a;color:#fff;border:none;font-weight:800;padding:10px 16px;border-radius:9px;font-size:13px;cursor:pointer">Cerrar</button>'+
+    '</div>'+
+    '<iframe src="'+url+'" style="flex:1;width:100%;border:none;border-radius:10px;background:#fff"></iframe>';
+  ov.querySelector('button').onclick = ()=>{ try{ URL.revokeObjectURL(url); }catch(e){} ov.remove(); };
+  document.body.appendChild(ov);
 }
 async function subirDoc(datauri, meta){
   const fs=fbReady(); if(!fs) throw new Error('sin conexión');
@@ -3010,7 +3038,8 @@ function imprimirOT(modo){
     veh:$('otVeh').value, dominio:$('otDominio').value, km:$('otKm').value, chasis:$('otChasis').value, motor:$('otMotor').value,
     items:leerItems(), repVenta:+$('otRepVenta').value||0, detallarRep:!!($('otDetalleRep')&&$('otDetalleRep').checked), moDet:$('otMOdet').value, moCosto:0, moPrecio:+$('otMOprecio').value||0
   };
-  armarHoja(o, modo); imprimirHoja();
+  if(otEdit && otEdit.arca) o.arca = otEdit.arca;
+  verPDF(o, modo);
 }
 function armarHoja(o, modo){
   const cfg = db.cfg[o.soc], logo = o.soc==='AT' ? LOGO_AT : LOGO_TQ;
