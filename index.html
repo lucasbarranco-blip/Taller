@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07d sync-merge-fix -->
+<!-- build 2026-08-07e arca-facturacion -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1058,14 +1058,20 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
           <div class="campo"><label>Bajada</label><input id="cfgATsub"></div>
           <div class="grid2"><div class="campo"><label>CUIT</label><input id="cfgATcuit"></div><div class="campo"><label>Teléfono</label><input id="cfgATtel"></div></div>
           <div class="campo"><label>Dirección</label><input id="cfgATdir"></div>
-          <div class="campo" style="margin:0"><label>E-mail</label><input id="cfgATmail"></div>
+          <div class="campo"><label>E-mail</label><input id="cfgATmail"></div>
+          <div style="border-top:1px dashed var(--borde);margin:10px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Facturación ARCA (Web Service)</div>
+          <div class="grid2"><div class="campo"><label>Facturar en ARCA</label><select id="cfgATarcaOn"><option value="no">Desactivado</option><option value="si">Activado</option></select></div><div class="campo"><label>Punto de venta (WS)</label><input id="cfgATarcaPv" type="number" min="1" placeholder="Ej: 4"></div></div>
+          <div class="campo" style="margin:0"><label>URL del Worker</label><input id="cfgATarcaUrl" placeholder="https://arca-worker-at.tucuenta.workers.dev/facturar" style="font-family:var(--mono);font-size:12px"></div>
         </div>
         <div class="seccion" style="margin:0"><h4>Terra Quattro SRL</h4>
           <div class="campo"><label>Razón social</label><input id="cfgTQrz"></div>
           <div class="campo"><label>Bajada</label><input id="cfgTQsub"></div>
           <div class="grid2"><div class="campo"><label>CUIT</label><input id="cfgTQcuit"></div><div class="campo"><label>Teléfono</label><input id="cfgTQtel"></div></div>
           <div class="campo"><label>Dirección</label><input id="cfgTQdir"></div>
-          <div class="campo" style="margin:0"><label>E-mail</label><input id="cfgTQmail"></div>
+          <div class="campo"><label>E-mail</label><input id="cfgTQmail"></div>
+          <div style="border-top:1px dashed var(--borde);margin:10px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Facturación ARCA (Web Service)</div>
+          <div class="grid2"><div class="campo"><label>Facturar en ARCA</label><select id="cfgTQarcaOn"><option value="no">Desactivado</option><option value="si">Activado</option></select></div><div class="campo"><label>Punto de venta (WS)</label><input id="cfgTQarcaPv" type="number" min="1" placeholder="Ej: 4"></div></div>
+          <div class="campo" style="margin:0"><label>URL del Worker</label><input id="cfgTQarcaUrl" placeholder="https://arca-worker-tq.tucuenta.workers.dev/facturar" style="font-family:var(--mono);font-size:12px"></div>
         </div>
       </div>
     </div>
@@ -1176,6 +1182,10 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div class="grid2">
           <div class="campo"><label>E-mail</label><input id="cliEmail" placeholder="cliente@mail.com"></div>
           <div class="campo"><label>Dirección</label><input id="cliDir"></div>
+        </div>
+        <div class="grid2">
+          <div class="campo"><label>CUIT / DNI <span style="font-weight:500;color:var(--gris2);font-size:10px">(para factura)</span></label><input id="cliCuit" placeholder="30-71812882-6" style="font-family:var(--mono)"></div>
+          <div class="campo"><label>Condición IVA</label><select id="cliCondiva"><option>Consumidor Final</option><option>Responsable Inscripto</option><option>Monotributo</option><option>Exento</option></select></div>
         </div>
         <div class="campo" style="margin:0"><label>Notas</label><input id="cliNotas" placeholder="Observaciones del cliente"></div>
       </div>
@@ -2422,14 +2432,61 @@ function abrirFacturar(id){
   $('fArca').checked = false; $('fCerrar').checked = true; $('fNro').value='';
   $('vFacturar').classList.add('on');
 }
-function confirmarFactura(){
+const CBTE_LABEL = {1:'Factura A', 6:'Factura B', 11:'Factura C'};
+function arcaCfgSoc(soc){ return (db.cfg[soc]&&db.cfg[soc].arca) || {}; }
+// Emite en ARCA a través del Worker (mismo contrato que el POS): devuelve {cae, caeVto, cbteTipo, ptoVta, nro, qrUrl, ...}
+async function facturarConArca(ot, tipoSel){
+  const soc = ot.soc || 'AT';
+  const a = arcaCfgSoc(soc);
+  if(!a.on || !a.workerUrl) throw new Error('La sociedad '+(socNombre[soc]||soc)+' no tiene ARCA configurado (Configuración → Facturación ARCA).');
+  if(!a.ptoVta) throw new Error('Falta el punto de venta (Web Service) de '+(socNombre[soc]||soc)+' en Configuración.');
+  const cl = ot.clienteId ? db.clientes.find(c=>c.id===ot.clienteId) : null;
+  const receptor = { condicionIVA: (cl&&cl.condiva) || 'Consumidor Final' };
+  if(tipoSel==='Factura A') receptor.forzarFacturaA = true;
+  const docRaw = ((cl&&cl.cuit)||'').replace(/\D/g,'');
+  if(docRaw.length===11) receptor.cuit = docRaw; else if(docRaw.length>=7) receptor.dni = docRaw;
+  const t = totalesOT(ot);
+  const ivaDef = (db.cfg.ivaDef!==undefined ? db.cfg.ivaDef : 21);
+  const items = [];
+  (ot.items||[]).forEach(i=>{ const precio=+i.precio||0, cant=+i.cant||0; if(precio>0 && cant>0) items.push({ precio, cant, iva: (i.iva!==undefined? i.iva : ivaDef) }); });
+  const repManual = (ot.repVenta!==undefined && ot.repVenta!==null && ot.repVenta!=='');
+  if((!items.length || repManual) && t.rep>0){ items.length=0; items.push({ precio:t.rep, cant:1, iva:ivaDef }); }
+  if((+ot.moPrecio||0)>0) items.push({ precio:+ot.moPrecio, cant:1, iva:ivaDef });
+  if(!items.length) throw new Error('La orden no tiene importe para facturar.');
+  const body = { ptoVta:+a.ptoVta, receptor, items, total:t.venta, ticket:ot.numero, ventaId:ot.id };
+  let res;
+  try{ res = await fetch(a.workerUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }); }
+  catch(e){ throw new Error('No se pudo conectar con el servicio de facturación.'); }
+  let data; try{ data = await res.json(); }catch(e){ throw new Error('Respuesta inválida del servicio de facturación.'); }
+  if(!data.ok) throw new Error(data.error || 'ARCA rechazó el comprobante.');
+  return data;
+}
+async function confirmarFactura(){
+  const wantArca = $('fArca').checked;
+  let arcaData = null;
+  if(wantArca){
+    const btn = document.querySelector('#vFacturar .foot-modal .btn');
+    if(btn){ btn.disabled=true; btn.textContent='Emitiendo…'; }
+    toast('Emitiendo comprobante en ARCA…');
+    try{ arcaData = await facturarConArca(factOT, $('fTipo').value); }
+    catch(e){ if(btn){ btn.disabled=false; btn.textContent='Facturar'; } toast('No se pudo facturar en ARCA: '+e.message, 7000); return; }
+    if(btn){ btn.disabled=false; btn.textContent='Facturar'; }
+  }
   const pago = [...db.pagos].reverse().find(p=>p.ot===factOT.numero) || {};
-  db.facturas.push({ id:uid(), f:hoy(), ot:factOT.numero, cliente:factOT.cliente, tipo:$('fTipo').value,
-    nro:$('fNro').value.trim(), arca:$('fArca').checked, monto:pago.monto||totalesOT(factOT).venta });
+  const fRec = { id:uid(), f:hoy(), ot:factOT.numero, cliente:factOT.cliente, tipo:$('fTipo').value,
+    nro:$('fNro').value.trim(), arca:wantArca, monto:pago.monto||totalesOT(factOT).venta };
+  if(arcaData){
+    const arca = { cae:arcaData.cae, caeVto:arcaData.caeVto, cbteTipo:arcaData.cbteTipo, ptoVta:arcaData.ptoVta, nro:arcaData.nro, qrUrl:arcaData.qrUrl, impNeto:arcaData.impNeto, impIVA:arcaData.impIVA };
+    fRec.arcaData = arca;
+    fRec.tipo = CBTE_LABEL[arcaData.cbteTipo] || fRec.tipo;
+    fRec.nro = String(arcaData.ptoVta).padStart(4,'0')+'-'+String(arcaData.nro).padStart(8,'0');
+    factOT.arca = arca; // para el PDF del cliente
+  }
+  db.facturas.push(fRec);
   factOT.estado = $('fCerrar').checked ? 'Terminado' : 'Facturado';
   factOT.fechaFactura = hoy();
   guardar(); render(); cerrar('vFacturar');
-  toast($('fArca').checked ? 'Facturada y marcada para envío a ARCA.' : 'Facturada sin ARCA. Orden '+($('fCerrar').checked?'terminada.':'en estado Facturado.'));
+  toast(arcaData ? ('✓ Factura ARCA emitida — CAE '+arcaData.cae) : ('Facturada sin ARCA. Orden '+($('fCerrar').checked?'terminada.':'en estado Facturado.')));
 }
 function terminarOT(id){ const o=db.ots.find(x=>x.id===id); o.estado='Terminado'; guardar(); render(); toast('Orden '+o.numero+' terminada.'); }
 
@@ -2772,10 +2829,12 @@ function exportarConta(){
 /* ================= CONFIG / RESPALDO ================= */
 function abrirCfg(){
   ['rz','sub','cuit','dir','tel','mail'].forEach(k=>{ $('cfgAT'+k).value=db.cfg.AT[k]||''; $('cfgTQ'+k).value=db.cfg.TQ[k]||''; }); $('cfgIA').value = db.cfg.ia||'';
+  ['AT','TQ'].forEach(s=>{ const a=(db.cfg[s]&&db.cfg[s].arca)||{}; $('cfg'+s+'arcaOn').value=a.on?'si':'no'; $('cfg'+s+'arcaPv').value=a.ptoVta||''; $('cfg'+s+'arcaUrl').value=a.workerUrl||''; });
   $('vCfg').classList.add('on');
 }
 function guardarCfg(){
   ['rz','sub','cuit','dir','tel','mail'].forEach(k=>{ db.cfg.AT[k]=$('cfgAT'+k).value.trim(); db.cfg.TQ[k]=$('cfgTQ'+k).value.trim(); }); db.cfg.ia = $('cfgIA').value.trim();
+  ['AT','TQ'].forEach(s=>{ db.cfg[s].arca = { on: $('cfg'+s+'arcaOn').value==='si', ptoVta: +$('cfg'+s+'arcaPv').value||0, workerUrl: $('cfg'+s+'arcaUrl').value.trim() }; });
   guardar(); cerrar('vCfg'); toast('Datos guardados.');
 }
 function exportarDB(){
@@ -2955,7 +3014,8 @@ function imprimirOT(modo){
 }
 function armarHoja(o, modo){
   const cfg = db.cfg[o.soc], logo = o.soc==='AT' ? LOGO_AT : LOGO_TQ;
-  const docTit = 'ORDEN DE TRABAJO';
+  const esFact = modo==='cliente' && o.arca && o.arca.cae;
+  const docTit = esFact ? (CBTE_LABEL[o.arca.cbteTipo]||'FACTURA').toUpperCase() : 'ORDEN DE TRABAJO';
   const docTitCap = 'Orden de trabajo';
   const t = totalesOT(o), rep = ventaRepuestos(o);
   const veh =
@@ -3012,6 +3072,12 @@ function armarHoja(o, modo){
     veh + tabla +
     '<div class="h-mo"><h4>Mano de obra</h4><p>'+esc(o.moDet||'—')+'</p></div>'+
     tots +
+    (esFact ?
+      '<div style="margin-top:14px;display:flex;gap:14px;align-items:center;border:1px solid #ddd;border-radius:8px;padding:10px 12px">'+
+        '<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&qzone=1&data='+encodeURIComponent(o.arca.qrUrl||'')+'" crossorigin="anonymous" width="92" height="92" style="flex-shrink:0" alt="QR ARCA">'+
+        '<div style="font-size:11px;line-height:1.55"><b>Comprobante autorizado por ARCA</b><br>'+(CBTE_LABEL[o.arca.cbteTipo]||'Factura')+' · Pto. Vta. '+String(o.arca.ptoVta).padStart(4,'0')+' · N° '+String(o.arca.nro).padStart(8,'0')+'<br><b>CAE:</b> '+esc(o.arca.cae)+' &nbsp;·&nbsp; <b>Vto. CAE:</b> '+esc(o.arca.caeVto||'—')+'</div>'+
+      '</div>'
+      : '')+
     (modo==='cliente' ?
       ((db.cfg.condiciones&&db.cfg.condiciones.trim()) ? '<div style="margin-top:16px;font-size:10.5px;color:#555;line-height:1.5"><b>Condiciones:</b> '+esc(db.cfg.condiciones.trim())+'</div>' : '')+
       (o.soc==='AT' ? '' :
@@ -3019,7 +3085,9 @@ function armarHoja(o, modo){
         '<div class="fcol">'+(db.cfg.firmaTQ?'<img class="firma-img" src="'+db.cfg.firmaTQ+'">':'')+'<div class="lin"><b>Por '+esc(cfg.rz)+'</b>'+esc(db.cfg.firmaTQtexto||'Firma y aclaración del responsable')+'</div></div>'+
         '<div class="fcol"><div class="lin"><b>Conformidad del cliente</b>Firma, aclaración y DNI</div></div>'+
         '</div>')+
-      '<div class="h-legal">'+esc(cfg.rz)+(cfg.cuit?' · CUIT '+esc(cfg.cuit):'')+' — '+docTitCap+' N° '+esc(o.numero)+' emitido el '+fFecha(o.fecha)+'. Documento no válido como factura.</div>'
+      '<div class="h-legal">'+esc(cfg.rz)+(cfg.cuit?' · CUIT '+esc(cfg.cuit):'')+' — '+(esFact
+        ? (CBTE_LABEL[o.arca.cbteTipo]||'Factura')+' N° '+String(o.arca.ptoVta).padStart(4,'0')+'-'+String(o.arca.nro).padStart(8,'0')+' · CAE '+esc(o.arca.cae)+' · Comprobante autorizado.'
+        : docTitCap+' N° '+esc(o.numero)+' emitido el '+fFecha(o.fecha)+'. Documento no válido como factura.')+'</div>'
       : '');
   $('hoja').style.setProperty('--acc', o.soc==='AT' ? '#c2372e' : '#8f1a17');
 }
@@ -3248,7 +3316,7 @@ function abrirCliente(id){
   $('cliTitulo').textContent = cliEdit ? 'Ficha de '+(cliEdit.nombre||'cliente') : 'Nuevo cliente';
   $('cliBorrar').hidden = !cliEdit; $('cliNuevaOT').hidden = !cliEdit;
   const c = cliEdit || {};
-  $('cliNombre').value=c.nombre||''; $('cliCelu').value=c.celu||''; $('cliEmail').value=c.email||''; $('cliDir').value=c.dir||''; $('cliNotas').value=c.notas||'';
+  $('cliNombre').value=c.nombre||''; $('cliCelu').value=c.celu||''; $('cliEmail').value=c.email||''; $('cliDir').value=c.dir||''; $('cliNotas').value=c.notas||''; $('cliCuit').value=c.cuit||''; $('cliCondiva').value=c.condiva||'Consumidor Final';
   $('cliAutos').innerHTML='';
   (c.autos && c.autos.length ? c.autos : [null]).forEach(agregarAuto);
   pintarHistCliente(cliEdit);
@@ -3280,7 +3348,7 @@ function pintarHistCliente(c){
 }
 function guardarCliente(){
   const nombre=$('cliNombre').value.trim(); if(!nombre) return toast('Falta el nombre del cliente.');
-  const d={ nombre, celu:$('cliCelu').value.trim(), email:$('cliEmail').value.trim(), dir:$('cliDir').value.trim(), notas:$('cliNotas').value.trim(), autos:leerAutos() };
+  const d={ nombre, celu:$('cliCelu').value.trim(), email:$('cliEmail').value.trim(), dir:$('cliDir').value.trim(), notas:$('cliNotas').value.trim(), cuit:$('cliCuit').value.trim(), condiva:$('cliCondiva').value, autos:leerAutos() };
   if(cliEdit){ Object.assign(cliEdit,d); } else { d.id=uid(); db.clientes.push(d); cliEdit=d; }
   guardar(); render(); cerrar('vCliente'); toast('Cliente guardado.');
 }
