@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07f arca-pdf-ver -->
+<!-- build 2026-08-07g arca-pdf-historial -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2373,8 +2373,9 @@ function renderFact(){
   $('tbFacts').innerHTML = l.length ? l.map(f=>{
     const o = db.ots.find(x=>x.numero===f.ot);
     const cerrarBtn = o && o.estado==='Facturado' ? ' <button class="btn blanco mini" onclick="terminarOT(\''+o.id+'\')">Terminar</button>' : '';
+    const pdfBtn = o ? '<button class="btn fantasma mini" onclick="pdfFactura(\''+(f.id||'')+'\',\''+f.ot+'\')">PDF</button>' : '';
     return '<tr><td>'+fFecha(f.f)+'</td><td class="num" style="text-align:left">'+f.ot+'</td><td>'+esc(f.cliente)+'</td><td>'+esc(f.tipo)+(f.nro?' · <span style="font-family:var(--mono);font-size:12px">'+esc(f.nro)+'</span>':'')+'</td>'+
-    '<td><span class="chip sin" style="color:'+(f.arca?'#1c4fd6;background:#e7edfd':'#5b6472;background:#eceef2')+'">'+(f.arca?'Enviar a ARCA':'Sin ARCA')+'</span></td><td class="num">'+money(f.monto)+'</td><td>'+cerrarBtn+'</td></tr>';
+    '<td><span class="chip sin" style="color:'+(f.arca?'#1c4fd6;background:#e7edfd':'#5b6472;background:#eceef2')+'">'+(f.arca?'ARCA ✓':'Sin ARCA')+'</span></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right">'+pdfBtn+cerrarBtn+'</td></tr>';
   }).join('') : '<tr><td colspan="7" class="vacio">'+((d0||d1)?'Sin comprobantes en el período elegido.':'Todavía no se emitieron facturas.')+'</td></tr>';
 }
 function rangoLapso(v){
@@ -2861,6 +2862,13 @@ function imprimirHoja(){
   else go();
 }
 function pdfDirecto(id, modo){ const o=db.ots.find(x=>x.id===id); if(o) verPDF(o, modo); }
+function pdfFactura(fid, otNum){
+  const f = (db.facturas||[]).find(x=>x.id===fid) || (db.facturas||[]).find(x=>x.ot===otNum);
+  const o = db.ots.find(x=>x.numero===((f&&f.ot)||otNum));
+  if(!o){ return toast('No encontré la orden de esa factura.'); }
+  if(!o.arca && f && f.arcaData) o.arca = f.arcaData;
+  verPDF(o, 'cliente');
+}
 function otDesdeModal(){
   return { soc:$('otSoc').value, numero: otEdit ? otEdit.numero : '(BORRADOR)', fecha:$('otFecha').value||hoy(),
     cliente:$('otCliente').value, celu:$('otCelu').value, email:$('otEmail').value,
