@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07i cliente-razon-social -->
+<!-- build 2026-08-07j factura-pdf-autosuficiente -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2392,7 +2392,7 @@ function renderFact(){
   $('tbFacts').innerHTML = l.length ? l.map(f=>{
     const o = db.ots.find(x=>x.numero===f.ot);
     const cerrarBtn = o && o.estado==='Facturado' ? ' <button class="btn blanco mini" onclick="terminarOT(\''+o.id+'\')">Terminar</button>' : '';
-    const pdfBtn = o ? '<button class="btn fantasma mini" onclick="pdfFactura(\''+(f.id||'')+'\',\''+f.ot+'\')">PDF</button>' : '';
+    const pdfBtn = (o || f.arcaData) ? '<button class="btn fantasma mini" onclick="pdfFactura(\''+(f.id||'')+'\',\''+f.ot+'\')">PDF</button>' : '';
     return '<tr><td>'+fFecha(f.f)+'</td><td class="num" style="text-align:left">'+f.ot+'</td><td>'+esc(f.cliente)+'</td><td>'+esc(f.tipo)+(f.nro?' · <span style="font-family:var(--mono);font-size:12px">'+esc(f.nro)+'</span>':'')+'</td>'+
     '<td><span class="chip sin" style="color:'+(f.arca?'#1c4fd6;background:#e7edfd':'#5b6472;background:#eceef2')+'">'+(f.arca?'ARCA ✓':'Sin ARCA')+'</span></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right">'+pdfBtn+cerrarBtn+'</td></tr>';
   }).join('') : '<tr><td colspan="7" class="vacio">'+((d0||d1)?'Sin comprobantes en el período elegido.':'Todavía no se emitieron facturas.')+'</td></tr>';
@@ -2494,12 +2494,18 @@ async function confirmarFactura(){
   }
   const pago = [...db.pagos].reverse().find(p=>p.ot===factOT.numero) || {};
   const fRec = { id:uid(), f:hoy(), ot:factOT.numero, cliente:factOT.cliente, tipo:$('fTipo').value,
-    nro:$('fNro').value.trim(), arca:wantArca, monto:pago.monto||totalesOT(factOT).venta };
+    nro:$('fNro').value.trim(), arca:wantArca, soc:factOT.soc, monto:pago.monto||totalesOT(factOT).venta };
   if(arcaData){
     const cl = factOT.clienteId ? db.clientes.find(c=>c.id===factOT.clienteId) : null;
     const receptorSnap = { nombre:(cl&&(cl.razon||cl.nombre))||factOT.cliente||'', cuit:(cl&&cl.cuit)||'', condiva:(cl&&cl.condiva)||'Consumidor Final', dom:(cl&&(cl.domFisc||cl.dir))||'' };
+    const ivaDefE=(db.cfg.ivaDef!==undefined?db.cfg.ivaDef:21);
+    let lineasSnap=[];
+    (factOT.items||[]).forEach(i=>{ const precio=+i.precio||0,cant=+i.cant||0; if(precio>0&&cant>0) lineasSnap.push({ desc:(i.desc||'Ítem'), cant, unidad:(i.unidad&&i.unidad!=='Unidad')?i.unidad:'unidades', precio, iva:(i.iva!==undefined?i.iva:ivaDefE) }); });
+    const tSnap=totalesOT(factOT);
+    if(!lineasSnap.length && tSnap.rep>0) lineasSnap=[{ desc:'Repuestos e insumos', cant:1, unidad:'unidades', precio:tSnap.rep, iva:ivaDefE }];
+    if((+factOT.moPrecio||0)>0) lineasSnap.push({ desc:(factOT.moDet?('Mano de obra — '+factOT.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:+factOT.moPrecio, iva:ivaDefE });
     const arca = { cae:arcaData.cae, caeVto:arcaData.caeVto, cbteTipo:arcaData.cbteTipo, ptoVta:arcaData.ptoVta, nro:arcaData.nro, qrUrl:arcaData.qrUrl, impNeto:arcaData.impNeto, impIVA:arcaData.impIVA,
-      ivaArr:arcaData.ivaArr||[], total:totalesOT(factOT).venta, fecha:hoy(), receptor:receptorSnap, condVenta:medioACondVenta(pago.medio) };
+      ivaArr:arcaData.ivaArr||[], total:totalesOT(factOT).venta, fecha:hoy(), receptor:receptorSnap, condVenta:medioACondVenta(pago.medio), lineas:lineasSnap, soc:factOT.soc };
     fRec.arcaData = arca;
     fRec.tipo = CBTE_LABEL[arcaData.cbteTipo] || fRec.tipo;
     fRec.nro = String(arcaData.ptoVta).padStart(4,'0')+'-'+String(arcaData.nro).padStart(8,'0');
@@ -2887,9 +2893,15 @@ function pdfDirecto(id, modo){ const o=db.ots.find(x=>x.id===id); if(o) verPDF(o
 function pdfFactura(fid, otNum){
   const f = (db.facturas||[]).find(x=>x.id===fid) || (db.facturas||[]).find(x=>x.ot===otNum);
   const o = db.ots.find(x=>x.numero===((f&&f.ot)||otNum));
-  if(!o){ return toast('No encontré la orden de esa factura.'); }
-  if(!o.arca && f && f.arcaData) o.arca = f.arcaData;
-  verPDF(o, 'cliente');
+  if(o){ if(!o.arca && f && f.arcaData) o.arca = f.arcaData; verPDF(o, 'cliente'); return; }
+  // La orden ya no existe: reconstruyo la factura desde los datos guardados en el propio comprobante
+  if(f && f.arcaData){
+    const num = (f.ot||otNum||'');
+    const soc = f.soc || f.arcaData.soc || (num.indexOf('TQ')===0?'TQ':'AT');
+    const oSynth = { soc, numero:num, fecha:f.arcaData.fecha||f.f, cliente:f.cliente||'', items:[], moPrecio:0, repVenta:'', arca:f.arcaData };
+    verPDF(oSynth, 'cliente'); return;
+  }
+  toast('No encontré datos para generar el PDF de esta factura.');
 }
 function otDesdeModal(){
   return { soc:$('otSoc').value, numero: otEdit ? otEdit.numero : '(BORRADOR)', fecha:$('otFecha').value||hoy(),
@@ -3081,11 +3093,16 @@ function calcFacturaData(o){
   const a = o.arca||{};
   const ivaDef = (db.cfg.ivaDef!==undefined ? db.cfg.ivaDef : 21);
   let raw = [];
-  (o.items||[]).forEach(i=>{ const precio=+i.precio||0, cant=+i.cant||0; if(precio>0 && cant>0) raw.push({ desc:(i.desc||'Ítem'), cant, unidad:(i.unidad&&i.unidad!=='Unidad')?i.unidad:'unidades', precio, iva:(i.iva!==undefined?i.iva:ivaDef) }); });
-  const t = totalesOT(o);
-  if(!raw.length && t.rep>0){ raw = [{ desc:'Repuestos e insumos', cant:1, unidad:'unidades', precio:t.rep, iva:ivaDef }]; }
-  if((+o.moPrecio||0)>0) raw.push({ desc:(o.moDet?('Mano de obra — '+o.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:+o.moPrecio, iva:ivaDef });
-  const total = (a.total!=null ? a.total : t.venta);
+  if(a.lineas && a.lineas.length){
+    raw = a.lineas.map(l=>({ desc:(l.desc||'Ítem'), cant:+l.cant||1, unidad:l.unidad||'unidades', precio:+l.precio||0, iva:(l.iva!==undefined?l.iva:ivaDef) }));
+  } else {
+    (o.items||[]).forEach(i=>{ const precio=+i.precio||0, cant=+i.cant||0; if(precio>0 && cant>0) raw.push({ desc:(i.desc||'Ítem'), cant, unidad:(i.unidad&&i.unidad!=='Unidad')?i.unidad:'unidades', precio, iva:(i.iva!==undefined?i.iva:ivaDef) }); });
+    const tt = totalesOT(o);
+    if(!raw.length && tt.rep>0){ raw = [{ desc:'Repuestos e insumos', cant:1, unidad:'unidades', precio:tt.rep, iva:ivaDef }]; }
+    if((+o.moPrecio||0)>0) raw.push({ desc:(o.moDet?('Mano de obra — '+o.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:+o.moPrecio, iva:ivaDef });
+  }
+  const total = (a.total!=null ? a.total : totalesOT(o).venta);
+  if(!raw.length && total>0){ let alic=21; if(a.ivaArr&&a.ivaArr.length){ alic=+a.ivaArr[0].alic||21; } raw = [{ desc:'Trabajos y servicios realizados', cant:1, unidad:'unidades', precio:total, iva:alic }]; }
   const bruto = raw.reduce((s,l)=>s+l.precio*l.cant,0);
   const ratio = bruto>0 ? total/bruto : 1;
   const lineas = raw.map(l=>{ const gross=l.precio*l.cant*ratio, grossUnit=l.precio*ratio, neto=gross/(1+l.iva/100), netoUnit=grossUnit/(1+l.iva/100); return { desc:l.desc, cant:l.cant, unidad:l.unidad, iva:l.iva, grossUnit, gross, netoUnit, neto }; });
