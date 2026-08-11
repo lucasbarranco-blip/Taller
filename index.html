@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07j factura-pdf-autosuficiente -->
+<!-- build 2026-08-07k factura-pdf-reconstruye -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2898,7 +2898,8 @@ function pdfFactura(fid, otNum){
   if(f && f.arcaData){
     const num = (f.ot||otNum||'');
     const soc = f.soc || f.arcaData.soc || (num.indexOf('TQ')===0?'TQ':'AT');
-    const oSynth = { soc, numero:num, fecha:f.arcaData.fecha||f.f, cliente:f.cliente||'', items:[], moPrecio:0, repVenta:'', arca:f.arcaData };
+    const arca = Object.assign({}, f.arcaData); if(arca.total==null) arca.total = f.monto;
+    const oSynth = { soc, numero:num, fecha:arca.fecha||f.f, cliente:f.cliente||'', items:[], moPrecio:0, repVenta:'', arca };
     verPDF(oSynth, 'cliente'); return;
   }
   toast('No encontré datos para generar el PDF de esta factura.');
@@ -3101,8 +3102,8 @@ function calcFacturaData(o){
     if(!raw.length && tt.rep>0){ raw = [{ desc:'Repuestos e insumos', cant:1, unidad:'unidades', precio:tt.rep, iva:ivaDef }]; }
     if((+o.moPrecio||0)>0) raw.push({ desc:(o.moDet?('Mano de obra — '+o.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:+o.moPrecio, iva:ivaDef });
   }
-  const total = (a.total!=null ? a.total : totalesOT(o).venta);
-  if(!raw.length && total>0){ let alic=21; if(a.ivaArr&&a.ivaArr.length){ alic=+a.ivaArr[0].alic||21; } raw = [{ desc:'Trabajos y servicios realizados', cant:1, unidad:'unidades', precio:total, iva:alic }]; }
+  const total = (a.total!=null ? a.total : ((a.impNeto!=null && a.impIVA!=null) ? ((+a.impNeto)+(+a.impIVA)) : totalesOT(o).venta));
+  if(!raw.length && total>0){ let alic=21; if(a.ivaArr&&a.ivaArr.length){ alic=+a.ivaArr[0].alic||21; } else if((+a.impNeto)>0 && a.impIVA!=null){ alic=Math.round((+a.impIVA)/(+a.impNeto)*1000)/10; } raw = [{ desc:'Trabajos y servicios realizados', cant:1, unidad:'unidades', precio:total, iva:alic }]; }
   const bruto = raw.reduce((s,l)=>s+l.precio*l.cant,0);
   const ratio = bruto>0 ? total/bruto : 1;
   const lineas = raw.map(l=>{ const gross=l.precio*l.cant*ratio, grossUnit=l.precio*ratio, neto=gross/(1+l.iva/100), netoUnit=grossUnit/(1+l.iva/100); return { desc:l.desc, cant:l.cant, unidad:l.unidad, iva:l.iva, grossUnit, gross, netoUnit, neto }; });
@@ -3111,6 +3112,10 @@ function calcFacturaData(o){
     a.ivaArr.forEach(x=>{ ivas[x.alic]=(ivas[x.alic]||0)+(+x.importe||0); });
     neto = (a.impNeto!=null ? a.impNeto : lineas.reduce((s,l)=>s+l.neto,0));
     ivaTotal = (a.impIVA!=null ? a.impIVA : a.ivaArr.reduce((s,x)=>s+(+x.importe||0),0));
+  } else if(a.impIVA!=null && a.impNeto!=null){
+    const al = (+a.impNeto)>0 ? Math.round((+a.impIVA)/(+a.impNeto)*1000)/10 : 21;
+    ivas[al]=(ivas[al]||0)+(+a.impIVA||0);
+    neto=+a.impNeto; ivaTotal=+a.impIVA;
   } else {
     neto=0; ivaTotal=0;
     lineas.forEach(l=>{ const iv=l.gross-l.neto; ivas[l.iva]=(ivas[l.iva]||0)+iv; neto+=l.neto; ivaTotal+=iv; });
