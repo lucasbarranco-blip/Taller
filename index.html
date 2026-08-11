@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07g arca-pdf-historial -->
+<!-- build 2026-08-07h arca-factura-oficial -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1061,7 +1061,9 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
           <div class="campo"><label>E-mail</label><input id="cfgATmail"></div>
           <div style="border-top:1px dashed var(--borde);margin:10px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Facturación ARCA (Web Service)</div>
           <div class="grid2"><div class="campo"><label>Facturar en ARCA</label><select id="cfgATarcaOn"><option value="no">Desactivado</option><option value="si">Activado</option></select></div><div class="campo"><label>Punto de venta (WS)</label><input id="cfgATarcaPv" type="number" min="1" placeholder="Ej: 4"></div></div>
-          <div class="campo" style="margin:0"><label>URL del Worker</label><input id="cfgATarcaUrl" placeholder="https://arca-worker-at.tucuenta.workers.dev/facturar" style="font-family:var(--mono);font-size:12px"></div>
+          <div class="campo"><label>URL del Worker</label><input id="cfgATarcaUrl" placeholder="https://arca-worker-at.tucuenta.workers.dev/facturar" style="font-family:var(--mono);font-size:12px"></div>
+          <div class="grid2"><div class="campo"><label>Ingresos Brutos</label><input id="cfgATarcaIIBB" placeholder="regimen local"></div><div class="campo"><label>Inicio de actividades</label><input id="cfgATarcaInicio" placeholder="31/05/1999"></div></div>
+          <div class="campo" style="margin:0"><label>Condición frente al IVA (emisor)</label><input id="cfgATarcaCond" placeholder="IVA Responsable Inscripto"></div>
         </div>
         <div class="seccion" style="margin:0"><h4>Terra Quattro SRL</h4>
           <div class="campo"><label>Razón social</label><input id="cfgTQrz"></div>
@@ -1071,7 +1073,9 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
           <div class="campo"><label>E-mail</label><input id="cfgTQmail"></div>
           <div style="border-top:1px dashed var(--borde);margin:10px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Facturación ARCA (Web Service)</div>
           <div class="grid2"><div class="campo"><label>Facturar en ARCA</label><select id="cfgTQarcaOn"><option value="no">Desactivado</option><option value="si">Activado</option></select></div><div class="campo"><label>Punto de venta (WS)</label><input id="cfgTQarcaPv" type="number" min="1" placeholder="Ej: 4"></div></div>
-          <div class="campo" style="margin:0"><label>URL del Worker</label><input id="cfgTQarcaUrl" placeholder="https://arca-worker-tq.tucuenta.workers.dev/facturar" style="font-family:var(--mono);font-size:12px"></div>
+          <div class="campo"><label>URL del Worker</label><input id="cfgTQarcaUrl" placeholder="https://arca-worker-tq.tucuenta.workers.dev/facturar" style="font-family:var(--mono);font-size:12px"></div>
+          <div class="grid2"><div class="campo"><label>Ingresos Brutos</label><input id="cfgTQarcaIIBB" placeholder="regimen local"></div><div class="campo"><label>Inicio de actividades</label><input id="cfgTQarcaInicio" placeholder="dd/mm/aaaa"></div></div>
+          <div class="campo" style="margin:0"><label>Condición frente al IVA (emisor)</label><input id="cfgTQarcaCond" placeholder="IVA Responsable Inscripto"></div>
         </div>
       </div>
     </div>
@@ -1335,6 +1339,15 @@ function normalizarDB(){
   db.preentregas.forEach(pe=>{ if(pe.fFact===undefined) pe.fFact = pe.f||''; });
   db.cfg=db.cfg||{}; db.cfg.AT=db.cfg.AT||{rz:'ALL TERRAIN SRL',sub:'4X4 SERVICE · EST. 1991',cuit:'',dir:'',tel:'',mail:''};
   db.cfg.TQ=db.cfg.TQ||{rz:'TERRA QUATTRO SRL',sub:'GWM',cuit:'',dir:'',tel:'',mail:''};
+  // Datos fiscales del emisor para la factura ARCA (se pueden editar en Configuración)
+  if(!db.cfg.AT.cuit) db.cfg.AT.cuit='30702082389';
+  if(!db.cfg.AT.dir) db.cfg.AT.dir='Camarones 3148 - Ciudad de Buenos Aires';
+  db.cfg.AT.arca = db.cfg.AT.arca || {};
+  if(db.cfg.AT.arca.condIva===undefined) db.cfg.AT.arca.condIva='IVA Responsable Inscripto';
+  if(db.cfg.AT.arca.iibb===undefined) db.cfg.AT.arca.iibb='regimen local';
+  if(db.cfg.AT.arca.inicio===undefined) db.cfg.AT.arca.inicio='31/05/1999';
+  db.cfg.TQ.arca = db.cfg.TQ.arca || {};
+  if(db.cfg.TQ.arca.condIva===undefined) db.cfg.TQ.arca.condIva='IVA Responsable Inscripto';
   db.cfg.ia=db.cfg.ia||'';
   db.cfg.categorias=db.cfg.categorias||['Alquiler','Sueldos','Servicios','Impuestos','Herramientas','Combustible','Seguros','Insumos','Honorarios'];
   if(db.cfg.validez===undefined) db.cfg.validez=7; db.cfg.saludo=db.cfg.saludo||''; db.cfg.condiciones=db.cfg.condiciones||''; if(db.cfg.ivaDef===undefined) db.cfg.ivaDef=21; db.cfg.msgPlantilla=db.cfg.msgPlantilla||''; db.cfg.firmaTQ=db.cfg.firmaTQ||''; db.cfg.moPresets=db.cfg.moPresets||[]; if(db.cfg.firmaTQtexto===undefined) db.cfg.firmaTQtexto='Luciano Magnotti · CUIT 20-43872162-3';
@@ -2477,7 +2490,10 @@ async function confirmarFactura(){
   const fRec = { id:uid(), f:hoy(), ot:factOT.numero, cliente:factOT.cliente, tipo:$('fTipo').value,
     nro:$('fNro').value.trim(), arca:wantArca, monto:pago.monto||totalesOT(factOT).venta };
   if(arcaData){
-    const arca = { cae:arcaData.cae, caeVto:arcaData.caeVto, cbteTipo:arcaData.cbteTipo, ptoVta:arcaData.ptoVta, nro:arcaData.nro, qrUrl:arcaData.qrUrl, impNeto:arcaData.impNeto, impIVA:arcaData.impIVA };
+    const cl = factOT.clienteId ? db.clientes.find(c=>c.id===factOT.clienteId) : null;
+    const receptorSnap = { nombre:(cl&&cl.nombre)||factOT.cliente||'', cuit:(cl&&cl.cuit)||'', condiva:(cl&&cl.condiva)||'Consumidor Final', dom:(cl&&cl.dir)||'' };
+    const arca = { cae:arcaData.cae, caeVto:arcaData.caeVto, cbteTipo:arcaData.cbteTipo, ptoVta:arcaData.ptoVta, nro:arcaData.nro, qrUrl:arcaData.qrUrl, impNeto:arcaData.impNeto, impIVA:arcaData.impIVA,
+      ivaArr:arcaData.ivaArr||[], total:totalesOT(factOT).venta, fecha:hoy(), receptor:receptorSnap, condVenta:medioACondVenta(pago.medio) };
     fRec.arcaData = arca;
     fRec.tipo = CBTE_LABEL[arcaData.cbteTipo] || fRec.tipo;
     fRec.nro = String(arcaData.ptoVta).padStart(4,'0')+'-'+String(arcaData.nro).padStart(8,'0');
@@ -2831,12 +2847,12 @@ function exportarConta(){
 /* ================= CONFIG / RESPALDO ================= */
 function abrirCfg(){
   ['rz','sub','cuit','dir','tel','mail'].forEach(k=>{ $('cfgAT'+k).value=db.cfg.AT[k]||''; $('cfgTQ'+k).value=db.cfg.TQ[k]||''; }); $('cfgIA').value = db.cfg.ia||'';
-  ['AT','TQ'].forEach(s=>{ const a=(db.cfg[s]&&db.cfg[s].arca)||{}; $('cfg'+s+'arcaOn').value=a.on?'si':'no'; $('cfg'+s+'arcaPv').value=a.ptoVta||''; $('cfg'+s+'arcaUrl').value=a.workerUrl||''; });
+  ['AT','TQ'].forEach(s=>{ const a=(db.cfg[s]&&db.cfg[s].arca)||{}; $('cfg'+s+'arcaOn').value=a.on?'si':'no'; $('cfg'+s+'arcaPv').value=a.ptoVta||''; $('cfg'+s+'arcaUrl').value=a.workerUrl||''; $('cfg'+s+'arcaIIBB').value=a.iibb||''; $('cfg'+s+'arcaInicio').value=a.inicio||''; $('cfg'+s+'arcaCond').value=a.condIva||''; });
   $('vCfg').classList.add('on');
 }
 function guardarCfg(){
   ['rz','sub','cuit','dir','tel','mail'].forEach(k=>{ db.cfg.AT[k]=$('cfgAT'+k).value.trim(); db.cfg.TQ[k]=$('cfgTQ'+k).value.trim(); }); db.cfg.ia = $('cfgIA').value.trim();
-  ['AT','TQ'].forEach(s=>{ db.cfg[s].arca = { on: $('cfg'+s+'arcaOn').value==='si', ptoVta: +$('cfg'+s+'arcaPv').value||0, workerUrl: $('cfg'+s+'arcaUrl').value.trim() }; });
+  ['AT','TQ'].forEach(s=>{ db.cfg[s].arca = Object.assign({}, db.cfg[s].arca, { on: $('cfg'+s+'arcaOn').value==='si', ptoVta: +$('cfg'+s+'arcaPv').value||0, workerUrl: $('cfg'+s+'arcaUrl').value.trim(), iibb: $('cfg'+s+'arcaIIBB').value.trim(), inicio: $('cfg'+s+'arcaInicio').value.trim(), condIva: $('cfg'+s+'arcaCond').value.trim()||'IVA Responsable Inscripto' }); });
   guardar(); cerrar('vCfg'); toast('Datos guardados.');
 }
 function exportarDB(){
@@ -2928,10 +2944,11 @@ function descargarBlob(blob, nombre){ const a=document.createElement('a'); a.hre
 async function generarPDFArchivo(o, modo){
   if(!window.jspdf || !window.html2canvas) throw new Error('libs PDF no cargadas');
   armarHoja(o, modo);
+  const esFactArca = modo==='cliente' && o.arca && o.arca.cae;
   const hoja=$('hoja'); const prev=hoja.getAttribute('style')||'';
-  hoja.setAttribute('style','display:block;position:fixed;left:-10000px;top:0;width:794px;background:#fff;z-index:-1;color:#222;padding:24px');
-  const img=hoja.querySelector('.h-logo img');
-  if(img && !img.complete){ await new Promise(r=>{ img.onload=r; img.onerror=r; setTimeout(r,1500); }); }
+  hoja.setAttribute('style','display:block;position:fixed;left:-10000px;top:0;width:794px;background:#fff;z-index:-1;color:#222;padding:24px'+(esFactArca?';border-top:none':''));
+  const img=hoja.querySelector(esFactArca ? 'img' : '.h-logo img');
+  if(img && !img.complete){ await new Promise(r=>{ img.onload=r; img.onerror=r; setTimeout(r,2500); }); }
   await new Promise(r=>setTimeout(r,50));
   const canvas=await html2canvas(hoja,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794});
   hoja.setAttribute('style', prev); hoja.style.display='none';
@@ -3049,7 +3066,150 @@ function imprimirOT(modo){
   if(otEdit && otEdit.arca) o.arca = otEdit.arca;
   verPDF(o, modo);
 }
+/* ===== FACTURA OFICIAL ARCA (layout idéntico al comprobante web) ===== */
+function fnum2(n){ n=Math.round((+n||0)*100)/100; return n.toFixed(2).replace('.',','); }
+function fmtCaeVto(s){ s=String(s||''); if(/^\d{8}$/.test(s)) return s.slice(6,8)+'/'+s.slice(4,6)+'/'+s.slice(0,4); return s||'—'; }
+function condIvaLabel(c){ const l=(c||'').trim().toLowerCase(); if(l.includes('exento')) return 'IVA Sujeto Exento'; if(l.includes('monotrib')) return 'Responsable Monotributo'; if(l.includes('inscripto')) return 'IVA Responsable Inscripto'; if(l.includes('consumidor')) return 'Consumidor Final'; return (c||'Consumidor Final'); }
+function medioACondVenta(m){ const l=(m||'').toLowerCase(); if(l.includes('transfer')) return 'Transferencia Bancaria'; if(l.includes('efectivo')||l.includes('contado')) return 'Contado'; if(l.includes('tarjeta')) return 'Tarjeta de Débito/Crédito'; if(l.includes('cheque')) return 'Cheque'; if(l.includes('cuenta')) return 'Cuenta Corriente'; return m ? m : 'Contado'; }
+function calcFacturaData(o){
+  const a = o.arca||{};
+  const ivaDef = (db.cfg.ivaDef!==undefined ? db.cfg.ivaDef : 21);
+  let raw = [];
+  (o.items||[]).forEach(i=>{ const precio=+i.precio||0, cant=+i.cant||0; if(precio>0 && cant>0) raw.push({ desc:(i.desc||'Ítem'), cant, unidad:(i.unidad&&i.unidad!=='Unidad')?i.unidad:'unidades', precio, iva:(i.iva!==undefined?i.iva:ivaDef) }); });
+  const t = totalesOT(o);
+  if(!raw.length && t.rep>0){ raw = [{ desc:'Repuestos e insumos', cant:1, unidad:'unidades', precio:t.rep, iva:ivaDef }]; }
+  if((+o.moPrecio||0)>0) raw.push({ desc:(o.moDet?('Mano de obra — '+o.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:+o.moPrecio, iva:ivaDef });
+  const total = (a.total!=null ? a.total : t.venta);
+  const bruto = raw.reduce((s,l)=>s+l.precio*l.cant,0);
+  const ratio = bruto>0 ? total/bruto : 1;
+  const lineas = raw.map(l=>{ const gross=l.precio*l.cant*ratio, grossUnit=l.precio*ratio, neto=gross/(1+l.iva/100), netoUnit=grossUnit/(1+l.iva/100); return { desc:l.desc, cant:l.cant, unidad:l.unidad, iva:l.iva, grossUnit, gross, netoUnit, neto }; });
+  let neto, ivaTotal; const ivas={};
+  if(a.ivaArr && a.ivaArr.length){
+    a.ivaArr.forEach(x=>{ ivas[x.alic]=(ivas[x.alic]||0)+(+x.importe||0); });
+    neto = (a.impNeto!=null ? a.impNeto : lineas.reduce((s,l)=>s+l.neto,0));
+    ivaTotal = (a.impIVA!=null ? a.impIVA : a.ivaArr.reduce((s,x)=>s+(+x.importe||0),0));
+  } else {
+    neto=0; ivaTotal=0;
+    lineas.forEach(l=>{ const iv=l.gross-l.neto; ivas[l.iva]=(ivas[l.iva]||0)+iv; neto+=l.neto; ivaTotal+=iv; });
+  }
+  return { lineas, neto, ivas, ivaTotal, total, ivaContenido:ivaTotal, otrosTributos:0 };
+}
+function armarFacturaARCA(o){
+  const A = o.arca||{}, cfg = db.cfg[o.soc]||{}, acfg = cfg.arca||{};
+  const D = calcFacturaData(o);
+  const esA = A.cbteTipo===1, esC = A.cbteTipo===11;
+  const letra = esA?'A':(esC?'C':'B');
+  const cod = esA?'01':(esC?'011':'006');
+  const pv = String(A.ptoVta||0).padStart(5,'0');
+  const nro = String(A.nro||0).padStart(8,'0');
+  const fEmi = fFecha(A.fecha||o.fecha);
+  const rec = A.receptor || (function(){ const cl=o.clienteId?db.clientes.find(c=>c.id===o.clienteId):null; return { nombre:(cl&&cl.nombre)||o.cliente||'', cuit:(cl&&cl.cuit)||'', condiva:(cl&&cl.condiva)||'Consumidor Final', dom:(cl&&cl.dir)||'' }; })();
+  const condVenta = A.condVenta || 'Contado';
+  const docRaw = String(rec.cuit||'').replace(/\D/g,'');
+  let docLabel='DNI', docNum='0';
+  if(docRaw.length===11){ docLabel='CUIT'; docNum=docRaw; } else if(docRaw.length>=7){ docLabel='DNI'; docNum=docRaw; }
+  const qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=170x170&qzone=1&data='+encodeURIComponent(A.qrUrl||'');
+  const box = 'border:1px solid #000;';
+  // ---- items ----
+  const colsA = ['Código','Producto / Servicio','Cantidad','U. medida','Precio Unit.','% Bonif','Subtotal','Alícuota IVA','Subtotal c/IVA'];
+  const colsB = ['Código','Producto / Servicio','Cantidad','U. Medida','Precio Unit.','% Bonif','Imp. Bonif.','Subtotal'];
+  const cols = esA?colsA:colsB;
+  const th = cols.map((c,i)=>'<th style="border:1px solid #000;background:#e6e6e6;color:#000;font-size:8px;font-weight:bold;text-transform:none;letter-spacing:0;white-space:normal;overflow:hidden;line-height:1.15;padding:3px 4px;text-align:'+(i>=2?'right':'left')+';vertical-align:middle">'+c+'</th>').join('');
+  const filas = D.lineas.map((l,ix)=>{
+    const c = esA
+      ? [(ix+1), esc(l.desc), fnum2(l.cant), l.unidad, fnum2(l.netoUnit), '0,00', fnum2(l.neto), (String(l.iva)+'%'), fnum2(l.gross)]
+      : [(ix+1), esc(l.desc), fnum2(l.cant), l.unidad, fnum2(l.grossUnit), '0,00', '0,00', fnum2(l.gross)];
+    return '<tr style="background:#fff">'+c.map((v,i)=>'<td style="font-size:9px;background:#fff;border:none;color:#000;padding:3px 4px;vertical-align:top;text-align:'+(i>=2?'right':'left')+'">'+v+'</td>').join('')+'</tr>';
+  }).join('');
+  // ---- totales ----
+  const rowsData = esA
+    ? [['Importe Neto Gravado', fnum2(D.neto)], ['IVA 27%', fnum2(D.ivas[27]||0)], ['IVA 21%', fnum2(D.ivas[21]||0)], ['IVA 10.5%', fnum2(D.ivas[10.5]||0)], ['IVA 5%', fnum2(D.ivas[5]||0)], ['IVA 2.5%', fnum2(D.ivas[2.5]||0)], ['IVA 0%', fnum2(D.ivas[0]||0)], ['Importe Otros Tributos', fnum2(D.otrosTributos)], ['Importe Total', fnum2(D.total), true]]
+    : [['Subtotal', fnum2(D.total)], ['Importe Otros Tributos', fnum2(D.otrosTributos)], ['Importe Total', fnum2(D.total), true]];
+  const totRow = (lab,val,big)=>'<div style="display:flex;justify-content:flex-end;align-items:baseline;padding:'+(big?'4px 0 2px':'1px 0')+'">'
+    +'<div style="font-weight:bold;font-size:'+(big?'12px':'10px')+';white-space:nowrap;text-align:right;color:#000">'+lab+': $</div>'
+    +'<div style="width:112px;text-align:right;font-size:'+(big?'12px':'10px')+';font-weight:'+(big?'bold':'normal')+';white-space:nowrap;color:#000">'+val+'</div></div>';
+  const totRight = rowsData.map(r=>totRow(r[0],r[1],r[2])).join('');
+  const totBox = '<div style="'+box+'display:flex;align-items:center;padding:10px 14px;min-height:60px">'
+    + (esA ? '<div style="flex:1;text-align:center;font-weight:bold;font-size:10px;color:#000">Importe Otros Tributos: $ &nbsp;&nbsp; '+fnum2(D.otrosTributos)+'</div>' : '<div style="flex:1"></div>')
+    + '<div style="width:352px">'+totRight+'</div></div>';
+  const leyB = (!esA && !esC) ?
+    '<div style="'+box+'border-top:none;padding:6px 12px">'+
+      '<div style="font-style:italic;font-weight:bold;font-size:10px;margin-bottom:2px">Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)</div>'+
+      '<div style="text-align:left"><span style="display:inline-block;min-width:200px;text-align:right;font-weight:bold;font-size:10px">IVA Contenido: $</span> &nbsp;&nbsp; <span style="font-size:10px">'+fnum2(D.ivaContenido)+'</span></div>'+
+    '</div>' : '';
+  // ---- HTML ----
+  $('hoja').innerHTML =
+  '<div style="font-family:Arial,Helvetica,sans-serif;color:#000;font-size:11px;line-height:1.35">'+
+    // ORIGINAL
+    '<div style="'+box+'text-align:center;font-weight:bold;font-size:14px;padding:3px">ORIGINAL</div>'+
+    // encabezado emisor | letra | comprobante
+    '<div style="'+box+'border-top:none;position:relative;display:flex">'+
+      '<div style="width:50%;padding:8px 12px 10px;border-right:1px solid #000;box-sizing:border-box">'+
+        '<div style="text-align:center;font-weight:bold;font-size:13px;margin:2px 0 12px">'+esc(cfg.rz||'')+'</div>'+
+        '<div style="font-size:10px;line-height:1.9">'+
+          '<div><b>Razón Social:</b> '+esc(cfg.rz||'')+'</div>'+
+          '<div><b>Domicilio Comercial:</b> '+esc(cfg.dir||'')+'</div>'+
+          '<div><b>Condición frente al IVA:</b> '+esc(condIvaLabel(acfg.condIva||'IVA Responsable Inscripto'))+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="width:50%;padding:8px 12px 10px;box-sizing:border-box">'+
+        '<div style="font-size:20px;font-weight:bold;margin:0 0 8px 40px">FACTURA</div>'+
+        '<div style="font-size:10px;line-height:1.9">'+
+          '<div><b>Punto de Venta:</b> '+pv+' &nbsp;&nbsp;&nbsp; <b>Comp. Nro:</b> '+nro+'</div>'+
+          '<div><b>Fecha de Emisión:</b> '+fEmi+'</div>'+
+          '<div style="margin-top:6px"><b>CUIT:</b> '+esc(cfg.cuit||'')+'</div>'+
+          '<div><b>Ingresos Brutos:</b> '+esc(acfg.iibb||'')+'</div>'+
+          '<div><b>Fecha de Inicio de Actividades:</b> '+esc(acfg.inicio||'')+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="position:absolute;left:50%;top:-1px;transform:translateX(-50%);width:56px;height:52px;'+box+'background:#fff;text-align:center;line-height:1">'+
+        '<div style="font-size:30px;font-weight:bold;margin-top:1px">'+letra+'</div>'+
+        '<div style="font-size:8px;font-weight:bold;margin-top:-2px">COD. '+cod+'</div>'+
+      '</div>'+
+    '</div>'+
+    // periodo
+    '<div style="'+box+'border-top:none;padding:4px 12px;font-size:10px"><b>Período Facturado Desde:</b> '+fEmi+' &nbsp;&nbsp; <b>Hasta:</b> '+fEmi+' &nbsp;&nbsp;&nbsp;&nbsp; <b>Fecha de Vto. para el pago:</b> '+fEmi+'</div>'+
+    // receptor
+    '<div style="'+box+'border-top:none;padding:6px 12px;font-size:10px;line-height:1.9">'+
+      '<div style="display:flex">'+
+        '<div style="width:45%"><b>'+docLabel+':</b> '+esc(docNum)+'</div>'+
+        '<div style="width:55%"><b>Apellido y Nombre / Razón Social:</b> '+esc(rec.nombre||'')+'</div>'+
+      '</div>'+
+      '<div style="display:flex">'+
+        '<div style="width:45%"><b>Condición frente al IVA:</b> '+esc(condIvaLabel(rec.condiva))+'</div>'+
+        '<div style="width:55%"><b>Domicilio Comercial:</b> '+esc(rec.dom||'')+'</div>'+
+      '</div>'+
+      '<div><b>Condición de venta:</b> '+esc(condVenta)+'</div>'+
+    '</div>'+
+    // items
+    '<div style="margin-top:10px"><table style="width:100%;border-collapse:collapse;table-layout:fixed">'+
+      '<colgroup>'+(esA
+        ? '<col style="width:6%"><col style="width:29%"><col style="width:7%"><col style="width:8%"><col style="width:11%"><col style="width:6%"><col style="width:11%"><col style="width:10%"><col style="width:12%">'
+        : '<col style="width:8%"><col style="width:40%"><col style="width:9%"><col style="width:9%"><col style="width:12%"><col style="width:8%"><col style="width:8%"><col style="width:12%">')+'</colgroup>'+
+      '<thead><tr>'+th+'</tr></thead><tbody>'+filas+'</tbody></table></div>'+
+    '<div style="min-height:150px"></div>'+
+    // totales
+    totBox + leyB +
+    // footer
+    '<div style="display:flex;align-items:flex-start;margin-top:16px">'+
+      '<div style="width:130px"><img src="'+qrSrc+'" crossorigin="anonymous" width="118" height="118" alt="QR"></div>'+
+      '<div style="flex:1;text-align:center;padding-top:2px">'+
+        '<div style="font-weight:bold;font-size:12px;margin-bottom:8px">Pág. 1/1</div>'+
+        '<div style="font-size:26px;font-weight:800;letter-spacing:1px;line-height:1">ARCA</div>'+
+        '<div style="font-size:6.5px;letter-spacing:.4px;font-weight:bold">AGENCIA DE RECAUDACIÓN<br>Y CONTROL ADUANERO</div>'+
+        '<div style="font-style:italic;font-weight:bold;font-size:11px;margin-top:8px">Comprobante Autorizado</div>'+
+        '<div style="font-style:italic;font-size:8px;margin-top:3px;color:#222">Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación</div>'+
+      '</div>'+
+      '<div style="width:210px;text-align:right;font-size:11px;padding-top:2px;line-height:1.8">'+
+        '<div><b>CAE N°:</b> '+esc(A.cae||'')+'</div>'+
+        '<div><b>Fecha de Vto. de CAE:</b> '+fmtCaeVto(A.caeVto)+'</div>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
 function armarHoja(o, modo){
+  const esFactArca = modo==='cliente' && o.arca && o.arca.cae;
+  if(esFactArca){ armarFacturaARCA(o); $('hoja').style.setProperty('--acc', o.soc==='AT' ? '#c2372e' : '#8f1a17'); return; }
   const cfg = db.cfg[o.soc], logo = o.soc==='AT' ? LOGO_AT : LOGO_TQ;
   const esFact = modo==='cliente' && o.arca && o.arca.cae;
   const docTit = esFact ? (CBTE_LABEL[o.arca.cbteTipo]||'FACTURA').toUpperCase() : 'ORDEN DE TRABAJO';
