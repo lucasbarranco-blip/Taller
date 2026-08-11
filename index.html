@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07h arca-factura-oficial -->
+<!-- build 2026-08-07i cliente-razon-social -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1191,6 +1191,12 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
           <div class="campo"><label>CUIT / DNI <span style="font-weight:500;color:var(--gris2);font-size:10px">(para factura)</span></label><input id="cliCuit" placeholder="30-71812882-6" style="font-family:var(--mono)"></div>
           <div class="campo"><label>Condición IVA</label><select id="cliCondiva"><option>Consumidor Final</option><option>Responsable Inscripto</option><option>Monotributo</option><option>Exento</option></select></div>
         </div>
+        <div style="border-top:1px dashed var(--borde);margin:6px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Datos para facturar (ARCA)</div>
+        <div class="grid2">
+          <div class="campo"><label>Razón social <span style="font-weight:500;color:var(--gris2);font-size:10px">(si es empresa — sale en la factura)</span></label><input id="cliRazon" placeholder="EMPRESA S.R.L."></div>
+          <div class="campo"><label>Domicilio fiscal <span style="font-weight:500;color:var(--gris2);font-size:10px">(si difiere de la dirección)</span></label><input id="cliDomFisc" placeholder="Calle 123 - Localidad"></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--gris2);margin:-2px 0 8px;line-height:1.5">En la factura, «Apellido y Nombre / Razón Social» usa la <b>Razón social</b> si la cargás; si no, el nombre y apellido. Para <b>Factura A</b>, el cliente debe tener CUIT y condición «Responsable Inscripto».</div>
         <div class="campo" style="margin:0"><label>Notas</label><input id="cliNotas" placeholder="Observaciones del cliente"></div>
       </div>
       <div class="seccion" style="margin-bottom:11px">
@@ -2491,7 +2497,7 @@ async function confirmarFactura(){
     nro:$('fNro').value.trim(), arca:wantArca, monto:pago.monto||totalesOT(factOT).venta };
   if(arcaData){
     const cl = factOT.clienteId ? db.clientes.find(c=>c.id===factOT.clienteId) : null;
-    const receptorSnap = { nombre:(cl&&cl.nombre)||factOT.cliente||'', cuit:(cl&&cl.cuit)||'', condiva:(cl&&cl.condiva)||'Consumidor Final', dom:(cl&&cl.dir)||'' };
+    const receptorSnap = { nombre:(cl&&(cl.razon||cl.nombre))||factOT.cliente||'', cuit:(cl&&cl.cuit)||'', condiva:(cl&&cl.condiva)||'Consumidor Final', dom:(cl&&(cl.domFisc||cl.dir))||'' };
     const arca = { cae:arcaData.cae, caeVto:arcaData.caeVto, cbteTipo:arcaData.cbteTipo, ptoVta:arcaData.ptoVta, nro:arcaData.nro, qrUrl:arcaData.qrUrl, impNeto:arcaData.impNeto, impIVA:arcaData.impIVA,
       ivaArr:arcaData.ivaArr||[], total:totalesOT(factOT).venta, fecha:hoy(), receptor:receptorSnap, condVenta:medioACondVenta(pago.medio) };
     fRec.arcaData = arca;
@@ -3103,7 +3109,7 @@ function armarFacturaARCA(o){
   const pv = String(A.ptoVta||0).padStart(5,'0');
   const nro = String(A.nro||0).padStart(8,'0');
   const fEmi = fFecha(A.fecha||o.fecha);
-  const rec = A.receptor || (function(){ const cl=o.clienteId?db.clientes.find(c=>c.id===o.clienteId):null; return { nombre:(cl&&cl.nombre)||o.cliente||'', cuit:(cl&&cl.cuit)||'', condiva:(cl&&cl.condiva)||'Consumidor Final', dom:(cl&&cl.dir)||'' }; })();
+  const rec = A.receptor || (function(){ const cl=o.clienteId?db.clientes.find(c=>c.id===o.clienteId):null; return { nombre:(cl&&(cl.razon||cl.nombre))||o.cliente||'', cuit:(cl&&cl.cuit)||'', condiva:(cl&&cl.condiva)||'Consumidor Final', dom:(cl&&(cl.domFisc||cl.dir))||'' }; })();
   const condVenta = A.condVenta || 'Contado';
   const docRaw = String(rec.cuit||'').replace(/\D/g,'');
   let docLabel='DNI', docNum='0';
@@ -3513,7 +3519,7 @@ function abrirCliente(id){
   $('cliTitulo').textContent = cliEdit ? 'Ficha de '+(cliEdit.nombre||'cliente') : 'Nuevo cliente';
   $('cliBorrar').hidden = !cliEdit; $('cliNuevaOT').hidden = !cliEdit;
   const c = cliEdit || {};
-  $('cliNombre').value=c.nombre||''; $('cliCelu').value=c.celu||''; $('cliEmail').value=c.email||''; $('cliDir').value=c.dir||''; $('cliNotas').value=c.notas||''; $('cliCuit').value=c.cuit||''; $('cliCondiva').value=c.condiva||'Consumidor Final';
+  $('cliNombre').value=c.nombre||''; $('cliCelu').value=c.celu||''; $('cliEmail').value=c.email||''; $('cliDir').value=c.dir||''; $('cliNotas').value=c.notas||''; $('cliCuit').value=c.cuit||''; $('cliCondiva').value=c.condiva||'Consumidor Final'; $('cliRazon').value=c.razon||''; $('cliDomFisc').value=c.domFisc||'';
   $('cliAutos').innerHTML='';
   (c.autos && c.autos.length ? c.autos : [null]).forEach(agregarAuto);
   pintarHistCliente(cliEdit);
@@ -3545,7 +3551,7 @@ function pintarHistCliente(c){
 }
 function guardarCliente(){
   const nombre=$('cliNombre').value.trim(); if(!nombre) return toast('Falta el nombre del cliente.');
-  const d={ nombre, celu:$('cliCelu').value.trim(), email:$('cliEmail').value.trim(), dir:$('cliDir').value.trim(), notas:$('cliNotas').value.trim(), cuit:$('cliCuit').value.trim(), condiva:$('cliCondiva').value, autos:leerAutos() };
+  const d={ nombre, celu:$('cliCelu').value.trim(), email:$('cliEmail').value.trim(), dir:$('cliDir').value.trim(), notas:$('cliNotas').value.trim(), cuit:$('cliCuit').value.trim(), condiva:$('cliCondiva').value, razon:$('cliRazon').value.trim(), domFisc:$('cliDomFisc').value.trim(), autos:leerAutos() };
   if(cliEdit){ Object.assign(cliEdit,d); } else { d.id=uid(); db.clientes.push(d); cliEdit=d; }
   guardar(); render(); cerrar('vCliente'); toast('Cliente guardado.');
 }
