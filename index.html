@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07l cond-venta-selector -->
+<!-- build 2026-08-07m periodo-facturado -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1001,6 +1001,12 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div class="campo"><label>Nº de comprobante (opcional)</label><input id="fNro" placeholder="0003-00001234" style="font-family:var(--mono)"></div>
       </div>
       <div class="campo"><label>Condición de venta <span style="font-weight:500;color:var(--gris2);font-size:10px">(sale en la factura)</span></label><select id="fCondVenta"><option>Contado</option><option>Tarjeta de Débito</option><option>Tarjeta de Crédito</option><option>Cuenta Corriente</option><option>Cheque</option><option>Transferencia Bancaria</option><option>Otra</option><option>Otros medios de pago electrónico</option></select></div>
+      <div style="border-top:1px dashed var(--borde);margin:4px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Período facturado</div>
+      <div class="grid2">
+        <div class="campo"><label>Desde</label><input type="date" id="fPerDesde"></div>
+        <div class="campo"><label>Hasta</label><input type="date" id="fPerHasta"></div>
+      </div>
+      <div class="campo"><label>Vto. para el pago</label><input type="date" id="fVtoPago"></div>
       <label class="check" style="cursor:pointer">
         <input type="checkbox" id="fArca">
         <span><b>Facturar automáticamente en ARCA</b><small>Queda registrado para la integración con la API de ARCA. Si no lo marcás, se cierra sin factura electrónica.</small></span>
@@ -2452,6 +2458,7 @@ function abrirFacturar(id){
   $('factInfo').innerHTML = '<b>'+factOT.numero+'</b> · '+esc(factOT.cliente)+' · '+money(pago.monto||totalesOT(factOT).venta);
   $('fArca').checked = false; $('fCerrar').checked = true; $('fNro').value='';
   const cvDef = medioACondVenta(pago.medio); $('fCondVenta').value = cvDef; if($('fCondVenta').selectedIndex<0) $('fCondVenta').value='Contado';
+  $('fPerDesde').value = hoy(); $('fPerHasta').value = hoy(); $('fVtoPago').value = hoy();
   $('vFacturar').classList.add('on');
 }
 const CBTE_LABEL = {1:'Factura A', 6:'Factura B', 11:'Factura C'};
@@ -2475,7 +2482,8 @@ async function facturarConArca(ot, tipoSel){
   if((!items.length || repManual) && t.rep>0){ items.length=0; items.push({ precio:t.rep, cant:1, iva:ivaDef }); }
   if((+ot.moPrecio||0)>0) items.push({ precio:+ot.moPrecio, cant:1, iva:ivaDef });
   if(!items.length) throw new Error('La orden no tiene importe para facturar.');
-  const body = { ptoVta:+a.ptoVta, receptor, items, total:t.venta, ticket:ot.numero, ventaId:ot.id };
+  const perD=($('fPerDesde').value||hoy()).replace(/-/g,''), perH=($('fPerHasta').value||hoy()).replace(/-/g,''), perV=($('fVtoPago').value||hoy()).replace(/-/g,'');
+  const body = { ptoVta:+a.ptoVta, receptor, items, total:t.venta, ticket:ot.numero, ventaId:ot.id, concepto:3, fchServDesde:perD, fchServHasta:perH, fchVtoPago:perV };
   let res;
   try{ res = await fetch(a.workerUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }); }
   catch(e){ throw new Error('No se pudo conectar con el servicio de facturación.'); }
@@ -2507,7 +2515,8 @@ async function confirmarFactura(){
     if(!lineasSnap.length && tSnap.rep>0) lineasSnap=[{ desc:'Repuestos e insumos', cant:1, unidad:'unidades', precio:tSnap.rep, iva:ivaDefE }];
     if((+factOT.moPrecio||0)>0) lineasSnap.push({ desc:(factOT.moDet?('Mano de obra — '+factOT.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:+factOT.moPrecio, iva:ivaDefE });
     const arca = { cae:arcaData.cae, caeVto:arcaData.caeVto, cbteTipo:arcaData.cbteTipo, ptoVta:arcaData.ptoVta, nro:arcaData.nro, qrUrl:arcaData.qrUrl, impNeto:arcaData.impNeto, impIVA:arcaData.impIVA,
-      ivaArr:arcaData.ivaArr||[], total:totalesOT(factOT).venta, fecha:hoy(), receptor:receptorSnap, condVenta:($('fCondVenta').value||'Contado'), lineas:lineasSnap, soc:factOT.soc };
+      ivaArr:arcaData.ivaArr||[], total:totalesOT(factOT).venta, fecha:hoy(), receptor:receptorSnap, condVenta:($('fCondVenta').value||'Contado'), lineas:lineasSnap, soc:factOT.soc,
+      periodo:{ desde:$('fPerDesde').value||hoy(), hasta:$('fPerHasta').value||hoy(), vto:$('fVtoPago').value||hoy() } };
     fRec.arcaData = arca;
     fRec.tipo = CBTE_LABEL[arcaData.cbteTipo] || fRec.tipo;
     fRec.nro = String(arcaData.ptoVta).padStart(4,'0')+'-'+String(arcaData.nro).padStart(8,'0');
@@ -3198,7 +3207,7 @@ function armarFacturaARCA(o){
       '</div>'+
     '</div>'+
     // periodo
-    '<div style="'+box+'border-top:none;padding:4px 12px;font-size:10px"><b>Período Facturado Desde:</b> '+fEmi+' &nbsp;&nbsp; <b>Hasta:</b> '+fEmi+' &nbsp;&nbsp;&nbsp;&nbsp; <b>Fecha de Vto. para el pago:</b> '+fEmi+'</div>'+
+    '<div style="'+box+'border-top:none;padding:4px 12px;font-size:10px"><b>Período Facturado Desde:</b> '+(A.periodo&&A.periodo.desde?fFecha(A.periodo.desde):fEmi)+' &nbsp;&nbsp; <b>Hasta:</b> '+(A.periodo&&A.periodo.hasta?fFecha(A.periodo.hasta):fEmi)+' &nbsp;&nbsp;&nbsp;&nbsp; <b>Fecha de Vto. para el pago:</b> '+(A.periodo&&A.periodo.vto?fFecha(A.periodo.vto):fEmi)+'</div>'+
     // receptor
     '<div style="'+box+'border-top:none;padding:6px 12px;font-size:10px;line-height:1.9">'+
       '<div style="display:flex">'+
