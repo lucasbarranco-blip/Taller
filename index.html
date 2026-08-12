@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07m periodo-facturado -->
+<!-- build 2026-08-07n notas-credito -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1017,6 +1017,22 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       </label>
     </div>
     <div class="foot-modal"><div class="der"><button class="btn" onclick="confirmarFactura()">Facturar</button></div></div>
+  </div>
+</div>
+
+<div class="velo" id="vNotaCredito">
+  <div class="modal chico">
+    <div class="m-cab"><h3>Nota de crédito</h3><button class="cerrar" onclick="cerrar('vNotaCredito')">×</button></div>
+    <div class="m-cuerpo">
+      <p style="color:var(--gris);margin-bottom:12px" id="ncInfo"></p>
+      <div class="campo"><label>Tipo de nota de crédito</label>
+        <select id="ncModo" onchange="ncToggle()"><option value="total">Total — anula toda la factura</option><option value="parcial">Parcial — un monto</option></select>
+      </div>
+      <div class="campo" id="ncMontoBox" style="display:none"><label>Monto de la nota de crédito <span style="font-weight:500;color:var(--gris2);font-size:10px">(con IVA incluido)</span></label><input id="ncMonto" type="number" min="0" step="0.01" placeholder="0"></div>
+      <div class="campo" style="margin:0"><label>Motivo <span style="font-weight:500;color:var(--gris2);font-size:10px">(opcional)</span></label><input id="ncMotivo" placeholder="Ej: anulación, devolución, error de facturación"></div>
+      <div style="font-size:11px;color:var(--gris2);margin-top:10px;line-height:1.5">La nota de crédito es un <b>comprobante fiscal real</b> que se emite en ARCA, queda asociada a la factura original y descuenta esa venta de tu IVA débito.</div>
+    </div>
+    <div class="foot-modal"><div class="der"><button class="btn" onclick="emitirNotaCredito()">Emitir nota de crédito</button></div></div>
   </div>
 </div>
 
@@ -2400,8 +2416,9 @@ function renderFact(){
     const o = db.ots.find(x=>x.numero===f.ot);
     const cerrarBtn = o && o.estado==='Facturado' ? ' <button class="btn blanco mini" onclick="terminarOT(\''+o.id+'\')">Terminar</button>' : '';
     const pdfBtn = (o || f.arcaData) ? '<button class="btn fantasma mini" onclick="pdfFactura(\''+(f.id||'')+'\',\''+f.ot+'\')">PDF</button>' : '';
+    const ncBtn = (f.arcaData && !f.esNC && /Factura/i.test(f.tipo||'')) ? ' <button class="btn fantasma mini" style="color:#b4232a" onclick="abrirNC(\''+(f.id||'')+'\')">NC</button>' : '';
     return '<tr><td>'+fFecha(f.f)+'</td><td class="num" style="text-align:left">'+f.ot+'</td><td>'+esc(f.cliente)+'</td><td>'+esc(f.tipo)+(f.nro?' · <span style="font-family:var(--mono);font-size:12px">'+esc(f.nro)+'</span>':'')+'</td>'+
-    '<td><span class="chip sin" style="color:'+(f.arca?'#1c4fd6;background:#e7edfd':'#5b6472;background:#eceef2')+'">'+(f.arca?'ARCA ✓':'Sin ARCA')+'</span></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right">'+pdfBtn+cerrarBtn+'</td></tr>';
+    '<td><span class="chip sin" style="color:'+(f.arca?'#1c4fd6;background:#e7edfd':'#5b6472;background:#eceef2')+'">'+(f.arca?'ARCA ✓':'Sin ARCA')+'</span></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right">'+pdfBtn+ncBtn+cerrarBtn+'</td></tr>';
   }).join('') : '<tr><td colspan="7" class="vacio">'+((d0||d1)?'Sin comprobantes en el período elegido.':'Todavía no se emitieron facturas.')+'</td></tr>';
 }
 function rangoLapso(v){
@@ -2461,7 +2478,7 @@ function abrirFacturar(id){
   $('fPerDesde').value = hoy(); $('fPerHasta').value = hoy(); $('fVtoPago').value = hoy();
   $('vFacturar').classList.add('on');
 }
-const CBTE_LABEL = {1:'Factura A', 6:'Factura B', 11:'Factura C'};
+const CBTE_LABEL = {1:'Factura A', 6:'Factura B', 11:'Factura C', 3:'Nota de Crédito A', 8:'Nota de Crédito B', 13:'Nota de Crédito C'};
 function arcaCfgSoc(soc){ return (db.cfg[soc]&&db.cfg[soc].arca) || {}; }
 // Emite en ARCA a través del Worker (mismo contrato que el POS): devuelve {cae, caeVto, cbteTipo, ptoVta, nro, qrUrl, ...}
 async function facturarConArca(ot, tipoSel){
@@ -2700,7 +2717,7 @@ function renderConta(){
   const ivaDe = (monto,rate)=> (monto||0) - (monto||0)/(1+((rate!=null?rate:ivaRate))/100);
   const comprasP = db.provs.filter(p=>(!d0||(p.fecha||'')>=d0)&&(!d1||(p.fecha||'')<=d1)&&(!socConta||p.soc===socConta));
   const ventasP = db.facturas.filter(f=>(!d0||(f.f||'')>=d0)&&(!d1||(f.f||'')<=d1)&&(!socConta||socDe(f.ot)===socConta));
-  const gravaVenta = f => /Factura/i.test(f.tipo||'');
+  const gravaVenta = f => /Factura|Nota de Cr/i.test(f.tipo||'');
   // Preentregas facturadas: entran al IVA débito por su fecha de facturación (fFact), estén cobradas o no.
   const preVentasP = (db.preentregas||[]).filter(pe=>pe.fFact && (!d0||pe.fFact>=d0) && (!d1||pe.fFact<=d1) && (!socConta||pe.soc===socConta));
   const netoProv = p => (p.total||0)/(1 + ((p.iva||0)/100));
@@ -2915,6 +2932,70 @@ function pdfFactura(fid, otNum){
   }
   toast('No encontré datos para generar el PDF de esta factura.');
 }
+/* ===== NOTAS DE CRÉDITO ===== */
+let ncFactId=null;
+function abrirNC(fid){
+  const f=(db.facturas||[]).find(x=>x.id===fid);
+  if(!f || !f.arcaData){ return toast('No encontré la factura o no es un comprobante de ARCA.'); }
+  ncFactId=fid;
+  const a=f.arcaData, tot=(a.total!=null?a.total:Math.abs(f.monto||0));
+  $('ncInfo').innerHTML='Factura original: <b>'+esc(f.tipo||'')+' '+esc(f.nro||'')+'</b> · '+esc(f.cliente||'')+' · '+money(tot);
+  $('ncModo').value='total'; $('ncMonto').value=''; $('ncMotivo').value=''; ncToggle();
+  $('vNotaCredito').classList.add('on');
+}
+function ncToggle(){ $('ncMontoBox').style.display = $('ncModo').value==='parcial' ? '' : 'none'; }
+async function llamarWorker(soc, body){
+  const a=arcaCfgSoc(soc);
+  if(!a.on || !a.workerUrl) throw new Error('La sociedad '+(socNombre[soc]||soc)+' no tiene ARCA configurado.');
+  let res; try{ res=await fetch(a.workerUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+  catch(e){ throw new Error('No se pudo conectar con el servicio de facturación.'); }
+  let data; try{ data=await res.json(); }catch(e){ throw new Error('Respuesta inválida del servicio de facturación.'); }
+  if(!data.ok) throw new Error(data.error||'ARCA rechazó el comprobante.');
+  return data;
+}
+async function emitirNotaCredito(){
+  const f=(db.facturas||[]).find(x=>x.id===ncFactId);
+  if(!f || !f.arcaData){ return toast('No encontré la factura.'); }
+  const a=f.arcaData;
+  const soc=f.soc||a.soc||((f.ot||'').indexOf('TQ')===0?'TQ':'AT');
+  const cfgA=arcaCfgSoc(soc);
+  if(!cfgA.on || !cfgA.workerUrl || !cfgA.ptoVta){ return toast('La sociedad de esta factura no tiene ARCA configurado.'); }
+  const modo=$('ncModo').value;
+  const totalOrig=(a.total!=null?a.total:Math.abs(f.monto||0));
+  const ivaDef=(db.cfg.ivaDef!==undefined?db.cfg.ivaDef:21);
+  const alicDom=(a.ivaArr&&a.ivaArr.length)?(+a.ivaArr[0].alic||ivaDef):ivaDef;
+  let total, items;
+  if(modo==='parcial'){
+    total=+$('ncMonto').value||0;
+    if(total<=0) return toast('Ingresá un monto válido para la nota de crédito parcial.');
+    if(total>totalOrig+0.5) return toast('El monto no puede superar el total de la factura ('+money(totalOrig)+').');
+    items=[{ precio:total, cant:1, iva:alicDom }];
+  } else {
+    total=totalOrig;
+    if(a.lineas && a.lineas.length){ items=a.lineas.map(l=>({ precio:+l.precio||0, cant:+l.cant||1, iva:(l.iva!==undefined?l.iva:ivaDef) })); }
+    else { items=[{ precio:total, cant:1, iva:alicDom }]; }
+  }
+  const rec=a.receptor||{};
+  const receptor={ condicionIVA: rec.condiva||'Consumidor Final' };
+  const docRaw=String(rec.cuit||'').replace(/\D/g,'');
+  if(docRaw.length===11) receptor.cuit=docRaw; else if(docRaw.length>=7) receptor.dni=docRaw;
+  const cbteAsoc={ tipo:a.cbteTipo, ptoVta:a.ptoVta, nro:a.nro, fecha:(a.fecha||'').replace(/-/g,'') };
+  const body={ ptoVta:+cfgA.ptoVta, receptor, items, total, ticket:f.ot, ventaId:f.id, concepto:1, cbteAsoc };
+  const btn=document.querySelector('#vNotaCredito .foot-modal .btn');
+  if(btn){ btn.disabled=true; btn.textContent='Emitiendo…'; }
+  toast('Emitiendo nota de crédito en ARCA…');
+  let data;
+  try{ data=await llamarWorker(soc, body); }
+  catch(e){ if(btn){ btn.disabled=false; btn.textContent='Emitir nota de crédito'; } return toast('No se pudo emitir la NC: '+e.message, 7000); }
+  if(btn){ btn.disabled=false; btn.textContent='Emitir nota de crédito'; }
+  const lineasNC=items.map((it,ix)=>({ desc:(modo==='parcial'?('Nota de crédito s/ '+(f.tipo||'comprobante')+' '+(f.nro||'')):(((a.lineas&&a.lineas[ix]&&a.lineas[ix].desc))||'Ítem')), cant:it.cant, unidad:'unidades', precio:it.precio, iva:it.iva }));
+  const arcaNC={ cae:data.cae, caeVto:data.caeVto, cbteTipo:data.cbteTipo, ptoVta:data.ptoVta, nro:data.nro, qrUrl:data.qrUrl, impNeto:data.impNeto, impIVA:data.impIVA, ivaArr:data.ivaArr||[], total:total, fecha:hoy(), receptor:rec, condVenta:a.condVenta||'Contado', lineas:lineasNC, soc:soc, cbteAsoc:{ tipo:a.cbteTipo, ptoVta:a.ptoVta, nro:a.nro, fechaISO:a.fecha }, motivo:$('ncMotivo').value.trim() };
+  const fRec={ id:uid(), f:hoy(), ot:f.ot, cliente:f.cliente, tipo:CBTE_LABEL[data.cbteTipo]||'Nota de Crédito', nro:String(data.ptoVta).padStart(4,'0')+'-'+String(data.nro).padStart(8,'0'), arca:true, esNC:true, soc:soc, monto:-total, arcaData:arcaNC };
+  db.facturas.push(fRec);
+  guardar(); render(); cerrar('vNotaCredito');
+  toast('✓ Nota de crédito emitida — CAE '+data.cae);
+  setTimeout(()=>{ const oSynth={ soc:soc, numero:f.ot, fecha:arcaNC.fecha, cliente:f.cliente||'', items:[], moPrecio:0, repVenta:'', arca:arcaNC }; verPDF(oSynth,'cliente'); }, 300);
+}
 function otDesdeModal(){
   return { soc:$('otSoc').value, numero: otEdit ? otEdit.numero : '(BORRADOR)', fecha:$('otFecha').value||hoy(),
     cliente:$('otCliente').value, celu:$('otCelu').value, email:$('otEmail').value,
@@ -2998,8 +3079,9 @@ async function verPDF(o, modo){
   try{ arch = await generarPDFArchivo(o, modo); }
   catch(e){ console.error('pdf', e); return toast('No se pudo generar el PDF.', 6000); }
   const esFact = modo==='cliente' && o.arca && o.arca.cae;
+  const esNCf = esFact && [3,8,13].includes(o.arca.cbteTipo);
   const nombre = esFact
-    ? ('Factura-'+String(o.arca.ptoVta).padStart(4,'0')+'-'+String(o.arca.nro).padStart(8,'0')+'.pdf')
+    ? ((esNCf?'NotaCredito-':'Factura-')+String(o.arca.ptoVta).padStart(4,'0')+'-'+String(o.arca.nro).padStart(8,'0')+'.pdf')
     : arch.nombre;
   const titulo = esFact
     ? ((CBTE_LABEL[o.arca.cbteTipo]||'Factura')+' '+String(o.arca.ptoVta).padStart(4,'0')+'-'+String(o.arca.nro).padStart(8,'0'))
@@ -3136,9 +3218,10 @@ function calcFacturaData(o){
 function armarFacturaARCA(o){
   const A = o.arca||{}, cfg = db.cfg[o.soc]||{}, acfg = cfg.arca||{};
   const D = calcFacturaData(o);
-  const esA = A.cbteTipo===1, esC = A.cbteTipo===11;
-  const letra = esA?'A':(esC?'C':'B');
-  const cod = esA?'01':(esC?'011':'006');
+  const TINFO = { 1:{l:'A',c:'01',d:'FACTURA'}, 6:{l:'B',c:'06',d:'FACTURA'}, 11:{l:'C',c:'011',d:'FACTURA'}, 3:{l:'A',c:'03',d:'NOTA DE CRÉDITO'}, 8:{l:'B',c:'08',d:'NOTA DE CRÉDITO'}, 13:{l:'C',c:'013',d:'NOTA DE CRÉDITO'} };
+  const ti = TINFO[A.cbteTipo] || {l:'B',c:'06',d:'FACTURA'};
+  const letra = ti.l, cod = ti.c, docTitulo = ti.d;
+  const esA = letra==='A', esC = letra==='C';
   const pv = String(A.ptoVta||0).padStart(5,'0');
   const nro = String(A.nro||0).padStart(8,'0');
   const fEmi = fFecha(A.fecha||o.fecha);
@@ -3149,6 +3232,7 @@ function armarFacturaARCA(o){
   if(docRaw.length===11){ docLabel='CUIT'; docNum=docRaw; } else if(docRaw.length>=7){ docLabel='DNI'; docNum=docRaw; }
   const qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=170x170&qzone=1&data='+encodeURIComponent(A.qrUrl||'');
   const box = 'border:1px solid #000;';
+  const asocXml = (A.cbteAsoc && A.cbteAsoc.tipo) ? '<div style="'+box+'border-top:none;padding:4px 12px;font-size:10px"><b>Comprobante Asociado:</b> '+esc(CBTE_LABEL[A.cbteAsoc.tipo]||'Comprobante')+' &nbsp; Pto. Vta. '+String(A.cbteAsoc.ptoVta||0).padStart(5,'0')+' &nbsp; N° '+String(A.cbteAsoc.nro||0).padStart(8,'0')+(A.cbteAsoc.fechaISO?(' &nbsp; del '+fFecha(A.cbteAsoc.fechaISO)):'')+'</div>' : '';
   // ---- items ----
   const colsA = ['Código','Producto / Servicio','Cantidad','U. medida','Precio Unit.','% Bonif','Subtotal','Alícuota IVA','Subtotal c/IVA'];
   const colsB = ['Código','Producto / Servicio','Cantidad','U. Medida','Precio Unit.','% Bonif','Imp. Bonif.','Subtotal'];
@@ -3192,7 +3276,7 @@ function armarFacturaARCA(o){
         '</div>'+
       '</div>'+
       '<div style="width:50%;padding:8px 12px 10px;box-sizing:border-box">'+
-        '<div style="font-size:20px;font-weight:bold;margin:0 0 8px 40px">FACTURA</div>'+
+        '<div style="height:46px;margin-left:44px"><div style="font-size:'+(docTitulo.length>10?'16px':'22px')+';font-weight:bold;white-space:nowrap">'+docTitulo+'</div></div>'+
         '<div style="font-size:10px;line-height:1.9">'+
           '<div><b>Punto de Venta:</b> '+pv+' &nbsp;&nbsp;&nbsp; <b>Comp. Nro:</b> '+nro+'</div>'+
           '<div><b>Fecha de Emisión:</b> '+fEmi+'</div>'+
@@ -3220,6 +3304,7 @@ function armarFacturaARCA(o){
       '</div>'+
       '<div><b>Condición de venta:</b> '+esc(condVenta)+'</div>'+
     '</div>'+
+    asocXml +
     // items
     '<div style="margin-top:10px"><table style="width:100%;border-collapse:collapse;table-layout:fixed">'+
       '<colgroup>'+(esA
