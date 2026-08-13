@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07n notas-credito -->
+<!-- build 2026-08-07o editar-facturas -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -985,6 +985,27 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div class="campo"><label>Tipo</label><select id="efTipo"><option>Factura B</option><option>Factura A</option><option>Factura C</option><option>Recibo interno</option></select></div>
       </div>
       <div class="campo" style="margin:0"><label>N° de comprobante</label><input id="efNro" style="font-family:var(--mono)"></div>
+      <div id="efArcaBox" style="display:none">
+        <div style="border-top:1px dashed var(--borde);margin:12px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Datos que salen en el PDF (ARCA)</div>
+        <div style="font-size:10.5px;color:var(--gris2);margin-bottom:8px;line-height:1.5">Estos datos cambian solo lo que se <b>imprime</b> en el comprobante. El CAE, los importes y el número no se modifican (son fijos en ARCA).</div>
+        <div class="grid2">
+          <div class="campo"><label>Razón social / Nombre</label><input id="efRazon" placeholder="EMPRESA S.R.L."></div>
+          <div class="campo"><label>CUIT / DNI</label><input id="efCuit" style="font-family:var(--mono)"></div>
+        </div>
+        <div class="grid2">
+          <div class="campo"><label>Condición IVA</label><select id="efCondiva"><option>Consumidor Final</option><option>Responsable Inscripto</option><option>Monotributo</option><option>Exento</option></select></div>
+          <div class="campo"><label>Condición de venta</label><select id="efCondVenta"><option>Contado</option><option>Tarjeta de Débito</option><option>Tarjeta de Crédito</option><option>Cuenta Corriente</option><option>Cheque</option><option>Transferencia Bancaria</option><option>Otra</option><option>Otros medios de pago electrónico</option></select></div>
+        </div>
+        <div class="campo"><label>Domicilio</label><input id="efDom"></div>
+        <div class="grid2">
+          <div class="campo"><label>Período desde</label><input type="date" id="efPerDesde"></div>
+          <div class="campo"><label>Período hasta</label><input type="date" id="efPerHasta"></div>
+        </div>
+        <div class="grid2">
+          <div class="campo"><label>Vto. para el pago</label><input type="date" id="efVtoPago"></div>
+          <div class="campo"><label>Detalle del ítem <span style="font-weight:500;color:var(--gris2);font-size:10px">(opcional)</span></label><input id="efDetalle" placeholder="Reemplaza la descripción"></div>
+        </div>
+      </div>
     </div>
     <div class="foot-modal"><button class="btn rojo" onclick="borrarEditFactura()">Eliminar comprobante</button><div class="der"><button class="btn" onclick="guardarEditFactura()">Guardar cambios</button></div></div>
   </div>
@@ -2417,8 +2438,9 @@ function renderFact(){
     const cerrarBtn = o && o.estado==='Facturado' ? ' <button class="btn blanco mini" onclick="terminarOT(\''+o.id+'\')">Terminar</button>' : '';
     const pdfBtn = (o || f.arcaData) ? '<button class="btn fantasma mini" onclick="pdfFactura(\''+(f.id||'')+'\',\''+f.ot+'\')">PDF</button>' : '';
     const ncBtn = (f.arcaData && !f.esNC && /Factura/i.test(f.tipo||'')) ? ' <button class="btn fantasma mini" style="color:#b4232a" onclick="abrirNC(\''+(f.id||'')+'\')">NC</button>' : '';
+    const edBtn = f.id ? ' <button class="btn blanco mini" onclick="editarFactura(\''+f.id+'\')">Editar</button>' : '';
     return '<tr><td>'+fFecha(f.f)+'</td><td class="num" style="text-align:left">'+f.ot+'</td><td>'+esc(f.cliente)+'</td><td>'+esc(f.tipo)+(f.nro?' · <span style="font-family:var(--mono);font-size:12px">'+esc(f.nro)+'</span>':'')+'</td>'+
-    '<td><span class="chip sin" style="color:'+(f.arca?'#1c4fd6;background:#e7edfd':'#5b6472;background:#eceef2')+'">'+(f.arca?'ARCA ✓':'Sin ARCA')+'</span></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right">'+pdfBtn+ncBtn+cerrarBtn+'</td></tr>';
+    '<td><span class="chip sin" style="color:'+(f.arca?'#1c4fd6;background:#e7edfd':'#5b6472;background:#eceef2')+'">'+(f.arca?'ARCA ✓':'Sin ARCA')+'</span></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right">'+pdfBtn+ncBtn+edBtn+cerrarBtn+'</td></tr>';
   }).join('') : '<tr><td colspan="7" class="vacio">'+((d0||d1)?'Sin comprobantes en el período elegido.':'Todavía no se emitieron facturas.')+'</td></tr>';
 }
 function rangoLapso(v){
@@ -2839,17 +2861,41 @@ function editarFactura(id){
   $('efInfo').innerHTML='<b>'+esc(f.ot||'')+'</b>'+(f.nro?' · N° '+esc(f.nro):'');
   $('efFecha').value=f.f||hoy(); $('efMonto').value=f.monto||0; $('efCliente').value=f.cliente||'';
   $('efTipo').value=f.tipo||'Factura B'; $('efNro').value=f.nro||'';
+  const esArca=!!f.arcaData;
+  $('efArcaBox').style.display=esArca?'':'none';
+  ['efFecha','efMonto','efTipo','efNro'].forEach(k=>{ const el=$(k); if(el){ el.disabled=esArca; el.style.opacity=esArca?0.55:1; } });
+  if(esArca){
+    const a=f.arcaData, r=a.receptor||{}, p=a.periodo||{};
+    $('efRazon').value=r.nombre||''; $('efCuit').value=r.cuit||''; $('efCondiva').value=r.condiva||'Consumidor Final'; if($('efCondiva').selectedIndex<0) $('efCondiva').value='Consumidor Final'; $('efDom').value=r.dom||'';
+    $('efCondVenta').value=a.condVenta||'Contado'; if($('efCondVenta').selectedIndex<0) $('efCondVenta').value='Contado';
+    $('efPerDesde').value=p.desde||''; $('efPerHasta').value=p.hasta||''; $('efVtoPago').value=p.vto||'';
+    $('efDetalle').value=(a.lineas&&a.lineas.length===1)?(a.lineas[0].desc||''):'';
+  }
   $('vEditFactura').classList.add('on');
 }
 function guardarEditFactura(){
   const f=db.facturas.find(x=>x.id===factEditId); if(!f) return;
-  f.f=$('efFecha').value||hoy(); f.monto=+$('efMonto').value||0; f.cliente=$('efCliente').value.trim();
-  f.tipo=$('efTipo').value; f.nro=$('efNro').value.trim();
+  const esArca=!!f.arcaData;
+  f.cliente=$('efCliente').value.trim();
+  if(!esArca){
+    f.f=$('efFecha').value||hoy(); f.monto=+$('efMonto').value||0; f.tipo=$('efTipo').value; f.nro=$('efNro').value.trim();
+  } else {
+    const a=f.arcaData;
+    a.receptor=Object.assign({}, a.receptor, { nombre:$('efRazon').value.trim(), cuit:$('efCuit').value.trim(), condiva:$('efCondiva').value, dom:$('efDom').value.trim() });
+    a.condVenta=$('efCondVenta').value||'Contado';
+    a.periodo={ desde:$('efPerDesde').value||'', hasta:$('efPerHasta').value||'', vto:$('efVtoPago').value||'' };
+    const det=$('efDetalle').value.trim();
+    if(det){
+      const ivaDom=(a.ivaArr&&a.ivaArr.length)?(+a.ivaArr[0].alic||21):21;
+      a.lineas=[{ desc:det, cant:1, unidad:'unidades', precio:(a.total!=null?a.total:Math.abs(f.monto||0)), iva:ivaDom }];
+    }
+  }
   guardar(); render(); cerrar('vEditFactura'); toast('Comprobante actualizado.');
 }
 function borrarEditFactura(){
   const f=db.facturas.find(x=>x.id===factEditId); if(!f) return;
-  if(!confirm('¿Eliminar este comprobante de venta de '+money(f.monto)+'?')) return;
+  const aviso = f.arcaData ? '¿Eliminar este comprobante del sistema?\n\nOJO: la factura ya emitida en ARCA NO se anula (para eso hacé una Nota de Crédito). Esto solo la borra de tu historial y del libro de IVA.' : ('¿Eliminar este comprobante de venta de '+money(f.monto)+'?');
+  if(!confirm(aviso)) return;
   db.facturas=db.facturas.filter(x=>x.id!==factEditId);
   guardar(); render(); cerrar('vEditFactura'); toast('Comprobante eliminado.');
 }
