@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07p doc-cliente-presupuesto -->
+<!-- build 2026-08-07q libro-por-dia -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -640,7 +640,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <div id="ctMedioInfo" style="font-size:12px;color:var(--gris2)"></div>
       <div style="margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <input id="ctQ" placeholder="Buscar categoría, detalle, origen, monto…" oninput="renderConta()" style="min-width:250px">
-        <label style="display:flex;gap:5px;align-items:center;font-size:12px;color:var(--gris2);font-weight:600;white-space:nowrap"><input type="checkbox" id="ctAgrup" checked onchange="renderConta()"> Agrupar por mes</label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--gris2);font-weight:600;white-space:nowrap">Agrupar por <select id="ctAgrupModo" onchange="renderConta()"><option value="dia">Día</option><option value="mes">Mes</option><option value="no">Sin agrupar</option></select></label>
       </div>
     </div>
     <div class="scrollx">
@@ -2793,18 +2793,25 @@ function renderConta(){
   const vacioMsg = q
     ? '<tr><td colspan="10" class="vacio">Ningún movimiento coincide con «'+esc(q)+'» en este período.</td></tr>'
     : '<tr><td colspan="10" class="vacio">Sin movimientos en el período. Los cobros de órdenes y las facturas de proveedor entran solos; lo demás lo cargás con el formulario.</td></tr>';
-  const agrup = !$('ctAgrup') || $('ctAgrup').checked;
+  const modo = ($('ctAgrupModo') && $('ctAgrupModo').value) || 'dia';
   if(!lt.length){ $('tbConta').innerHTML = vacioMsg; }
-  else if(!agrup){ $('tbConta').innerHTML = lt.map(filaMov).join(''); }
+  else if(modo==='no'){ $('tbConta').innerHTML = lt.map(filaMov).join(''); }
   else {
-    const gr={}; lt.forEach(m=>{ const ym=(m.f||'').slice(0,7)||'—'; (gr[ym]=gr[ym]||[]).push(m); });
-    $('tbConta').innerHTML = Object.keys(gr).sort((a,b)=>b.localeCompare(a)).map(ym=>{
-      const rows=gr[ym];
+    const porDia = modo==='dia';
+    const keyDe = m => porDia ? ((m.f||'')||'—') : ((m.f||'').slice(0,7)||'—');
+    const gr={}; lt.forEach(m=>{ const k=keyDe(m); (gr[k]=gr[k]||[]).push(m); });
+    $('tbConta').innerHTML = Object.keys(gr).sort((a,b)=>b.localeCompare(a)).map(k=>{
+      const rows=gr[k];
       const gi=rows.filter(m=>m.tipo==='Ingreso').reduce((a,m)=>a+m.monto,0);
       const ge=rows.filter(m=>m.tipo!=='Ingreso').reduce((a,m)=>a+m.monto,0);
       const gres=gi-ge;
-      return '<tr><td colspan="10" style="background:#f4f6fa;border-top:2px solid var(--borde);padding:7px 10px">'+
-        '<span style="font-weight:800;font-size:12px;color:var(--gris);letter-spacing:.03em">'+(ym==='—'?'Sin fecha':esc(nombreMes(ym)))+'</span>'+
+      let etiqueta;
+      if(porDia){ etiqueta = (k==='—') ? 'Sin fecha' : (DIAS_SEM[new Date(k+'T12:00:00').getDay()]+' '+fFecha(k)); }
+      else { etiqueta = (k==='—') ? 'Sin fecha' : nombreMes(k); }
+      const gid = 'gc'+(k.replace(/[^0-9]/g,'')||'x');
+      const cab = '<tr'+(porDia?' onclick="toggleDiaConta(\''+gid+'\',this)" style="cursor:pointer"':'')+'><td colspan="10" style="background:#f4f6fa;border-top:2px solid var(--borde);padding:7px 10px">'+
+        (porDia?'<span class="ct-arrow" style="display:inline-block;width:13px;color:var(--gris2);font-size:10px">▸</span>':'')+
+        '<span style="font-weight:800;font-size:12px;color:var(--gris);letter-spacing:.03em">'+esc(etiqueta)+'</span>'+
         '<span style="font-size:11px;color:var(--gris2);font-weight:600;margin-left:7px">'+rows.length+' movimiento'+(rows.length!==1?'s':'')+'</span>'+
         '<span style="float:right;font-family:var(--mono);font-size:11.5px;font-weight:700">'+
           '<span style="color:var(--ok)">+'+money(gi).slice(1)+'</span>'+
@@ -2812,9 +2819,18 @@ function renderConta(){
           '<span style="color:var(--rojo)">−'+money(ge).slice(1)+'</span>'+
           '<span style="color:var(--gris2);margin:0 6px">·</span>'+
           '<span style="color:'+(gres>=0?'var(--ok)':'var(--rojo)')+'">'+money(gres)+'</span>'+
-        '</span></td></tr>'+rows.map(filaMov).join('');
+        '</span></td></tr>';
+      let cuerpo = rows.map(filaMov).join('');
+      if(porDia){ cuerpo = cuerpo.replace(/<tr>/g, '<tr class="'+gid+'" style="display:none">'); }
+      return cab + cuerpo;
     }).join('');
   }
+}
+function toggleDiaConta(gid, el){
+  const rows = document.querySelectorAll('#tbConta tr.'+gid);
+  let abrir = false;
+  rows.forEach((r,i)=>{ if(i===0) abrir = (r.style.display==='none'); r.style.display = abrir ? '' : 'none'; });
+  const ar = el.querySelector('.ct-arrow'); if(ar) ar.textContent = abrir ? '▾' : '▸';
 }
 function llenarCats(){ if($('dlCats')) $('dlCats').innerHTML = (db.cfg.categorias||[]).map(c=>'<option>'+esc(c)+'</option>').join(''); }
 function abrirCats(){ pintarCats(); $('vCats').classList.add('on'); }
