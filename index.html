@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07q libro-por-dia -->
+<!-- build 2026-08-07r seña-a-cuenta -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -851,9 +851,17 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
           <select id="otMOtipo" onchange="aplicarMOtipo()" style="margin-bottom:7px"><option value="">— Plantilla de mano de obra (opcional) —</option></select>
           <textarea id="otMOdet" rows="3" style="height:100%;min-height:74px" placeholder="Control y desarme del tren delantero, suspensión y dirección…"></textarea></div>
           <div>
-            <div class="campo" style="margin:0"><label>Precio mano de obra</label><input type="number" id="otMOprecio" min="0" value="0" oninput="calcOT()"><small style="display:block;color:var(--gris2);font-size:10.5px;margin-top:4px">Es el mismo valor en la orden interna y en el presupuesto del cliente.</small></div>
+            <div class="campo" style="margin:0"><label>Precio mano de obra</label><input type="number" id="otMOprecio" min="0" value="0" oninput="calcOT();calcACuenta()"><small style="display:block;color:var(--gris2);font-size:10.5px;margin-top:4px">Es el mismo valor en la orden interna y en el presupuesto del cliente.</small></div>
           </div>
         </div>
+      </div>
+
+      <div class="seccion">
+        <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Pagos a cuenta / Seña</h4>
+        <div style="font-size:11.5px;color:var(--gris);line-height:1.5;margin-bottom:10px">Si el cliente dejó una seña o un pago a cuenta, anotalo acá. Aparece en el PDF del cliente con el <b>saldo pendiente</b>. Es solo informativo del presupuesto — no modifica la contabilidad.</div>
+        <div id="otACuentaList"></div>
+        <button class="btn blanco mini" onclick="agregarACuenta()">+ Agregar pago a cuenta</button>
+        <div id="otACuentaHint" style="font-size:12px;color:var(--gris);font-weight:600;margin-top:10px"></div>
       </div>
     </div>
     <div class="foot-modal">
@@ -1884,6 +1892,7 @@ function abrirOT(id){
   const cliMatch = (o.clienteId && db.clientes.find(c=>c.id===o.clienteId)) || db.clientes.find(c=>(c.nombre||'').trim().toLowerCase()===(o.cliente||'').trim().toLowerCase());
   otClienteSelId = cliMatch ? cliMatch.id : null;
   cargarAutosCliente(cliMatch || null);
+  otACuenta = (o.aCuenta||[]).map(x=>({...x})); pintarACuenta();
   calcOT();
   $('vOT').classList.add('on');
 }
@@ -1941,6 +1950,39 @@ function calcOT(){
   $('otTgan').parentElement.style.color = t.gan < 0 ? 'var(--rojo)' : '';
   $('otTmargen').textContent = t.venta ? Math.round(t.gan/t.venta*100)+'%' : '';
 }
+let otACuenta = [];
+function pintarACuenta(){
+  const cont = $('otACuentaList'); if(!cont) return;
+  cont.innerHTML = otACuenta.map((r,i)=>
+    '<div class="acuenta-row" style="display:grid;grid-template-columns:150px 140px 1fr 34px;gap:8px;margin-bottom:7px;align-items:center">'+
+    '<input type="date" class="ac-f" value="'+esc(r.f||hoy())+'" onchange="calcACuenta()">'+
+    '<input type="number" class="ac-monto" min="0" placeholder="0" value="'+(r.monto!=null&&r.monto!==''?r.monto:'')+'" oninput="calcACuenta()">'+
+    '<input type="text" class="ac-nota" placeholder="Nota (ej: seña, transferencia)" value="'+esc(r.nota||'')+'">'+
+    '<button class="btn blanco mini" onclick="quitarACuenta('+i+')" title="Quitar" style="color:var(--rojo);font-weight:700">×</button>'+
+    '</div>'
+  ).join('');
+  calcACuenta();
+}
+function leerDOMACuenta(){
+  const cont=$('otACuentaList'); if(!cont) return [];
+  return [...cont.querySelectorAll('.acuenta-row')].map(r=>({
+    f: r.querySelector('.ac-f').value || hoy(),
+    monto: (r.querySelector('.ac-monto').value==='' ? null : +r.querySelector('.ac-monto').value),
+    nota: r.querySelector('.ac-nota').value
+  }));
+}
+function leerACuenta(){ return leerDOMACuenta().map(x=>({ f:x.f, monto:+x.monto||0, nota:(x.nota||'').trim() })).filter(x=>x.monto>0); }
+function agregarACuenta(){ otACuenta = leerDOMACuenta(); otACuenta.push({ f:hoy(), monto:null, nota:'' }); pintarACuenta(); }
+function quitarACuenta(i){ otACuenta = leerDOMACuenta(); otACuenta.splice(i,1); pintarACuenta(); }
+function calcACuenta(){
+  const hint=$('otACuentaHint'); if(!hint) return;
+  const rows=$('otACuentaList')?[...$('otACuentaList').querySelectorAll('.ac-monto')]:[];
+  const tot=rows.reduce((a,el)=>a+(+el.value||0),0);
+  const venta=(+($('otRepVenta')?$('otRepVenta').value:0)||0)+(+($('otMOprecio')?$('otMOprecio').value:0)||0);
+  hint.innerHTML = tot>0
+    ? 'A cuenta: <b style="color:var(--ok)">'+money(tot)+'</b> · Saldo pendiente: <b style="color:'+((venta-tot)>=0?'var(--tinta)':'var(--rojo)')+'">'+money(venta-tot)+'</b> <span style="color:var(--gris2);font-weight:500">(sobre total '+money(venta)+')</span>'
+    : '';
+}
 function guardarOT(){
   if(!$('otCliente').value.trim()) return toast('Falta el nombre del cliente.');
   if(!otEdit && limiteDemo('ots','órdenes')) return;
@@ -1950,7 +1992,8 @@ function guardarOT(){
     veh:$('otVeh').value.trim(), dominio:$('otDominio').value.trim().toUpperCase(), km:$('otKm').value.trim(),
     chasis:$('otChasis').value.trim().toUpperCase(), motor:$('otMotor').value.trim().toUpperCase(),
     clienteId: otClienteSelId || (otEdit?otEdit.clienteId:null), docCli: ($('otDocCli')?$('otDocCli').value:'orden'),
-    items:leerItems(), repVenta:+$('otRepVenta').value||0, detallarRep:!!($('otDetalleRep')&&$('otDetalleRep').checked), moDet:$('otMOdet').value.trim(), moCosto:0, moPrecio:+$('otMOprecio').value||0
+    items:leerItems(), repVenta:+$('otRepVenta').value||0, detallarRep:!!($('otDetalleRep')&&$('otDetalleRep').checked), moDet:$('otMOdet').value.trim(), moCosto:0, moPrecio:+$('otMOprecio').value||0,
+    aCuenta: leerACuenta()
   };
   if(otEdit){ Object.assign(otEdit, datos); }
   else {
@@ -3428,6 +3471,13 @@ function armarHoja(o, modo){
       '<div class="fila"><span>Repuestos e insumos</span><b>'+money(rep)+'</b></div>'+
       '<div class="fila"><span>Mano de obra</span><b>'+money(o.moPrecio)+'</b></div>'+
       '<div class="total"><span>TOTAL</span><b>'+money(t.venta)+'</b></div></div>';
+    const acArr = (o.aCuenta||[]).filter(p=>(+p.monto||0)>0);
+    if(acArr.length){
+      const totAC = acArr.reduce((a,p)=>a+(+p.monto||0),0);
+      tots += '<div class="h-tots" style="margin-top:8px">'+
+        acArr.map(p=>'<div class="fila"><span>Pago a cuenta'+(p.f?' · '+fFecha(p.f):'')+(p.nota?' — '+esc(p.nota):'')+'</span><b>−'+money(p.monto)+'</b></div>').join('')+
+        '<div class="total"><span>SALDO PENDIENTE</span><b>'+money(t.venta-totAC)+'</b></div></div>';
+    }
   } else {
     marca = '<div class="marca-int">USO INTERNO — NO ENTREGAR AL CLIENTE</div>';
     tabla = '<table><thead><tr><th style="width:30px">#</th><th>Descripción</th><th>Proveedor</th><th class="num">Cant.</th><th class="num">Costo</th></tr></thead><tbody>'+
