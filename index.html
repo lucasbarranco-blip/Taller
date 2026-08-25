@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07r seña-a-cuenta -->
+<!-- build 2026-08-07s factura-renglones -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1012,7 +1012,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         </div>
         <div class="grid2">
           <div class="campo"><label>Vto. para el pago</label><input type="date" id="efVtoPago"></div>
-          <div class="campo"><label>Detalle del ítem <span style="font-weight:500;color:var(--gris2);font-size:10px">(opcional)</span></label><input id="efDetalle" placeholder="Reemplaza la descripción"></div>
+          <div class="campo"><label>Descripción de la factura <span style="font-weight:500;color:var(--gris2);font-size:10px">(opcional)</span></label><input id="efDetalle" placeholder="Si escribís algo, la factura queda con un solo renglón que dice esto"></div>
         </div>
       </div>
     </div>
@@ -1031,6 +1031,10 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div class="campo"><label>Nº de comprobante (opcional)</label><input id="fNro" placeholder="0003-00001234" style="font-family:var(--mono)"></div>
       </div>
       <div class="campo"><label>Condición de venta <span style="font-weight:500;color:var(--gris2);font-size:10px">(sale en la factura)</span></label><select id="fCondVenta"><option>Contado</option><option>Tarjeta de Débito</option><option>Tarjeta de Crédito</option><option>Cuenta Corriente</option><option>Cheque</option><option>Transferencia Bancaria</option><option>Otra</option><option>Otros medios de pago electrónico</option></select></div>
+      <div style="border-top:1px dashed var(--borde);margin:4px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Renglones de la factura</div>
+      <label class="check" style="cursor:pointer;margin-bottom:6px"><input type="checkbox" id="fDetRep"><span><b>Detallar los repuestos por su nombre</b><small>El renglón de repuestos lista los nombres que cargaste. El importe total no cambia.</small></span></label>
+      <label class="check" style="cursor:pointer;margin-bottom:6px"><input type="checkbox" id="fMOdet"><span><b>Incluir el detalle de la mano de obra</b><small>Si lo dejás destildado, el renglón dice solo «Mano de obra».</small></span></label>
+      <div class="campo"><label>Descripción a medida <span style="font-weight:500;color:var(--gris2);font-size:10px">(opcional)</span></label><textarea id="fDescFactura" rows="2" placeholder="Dejalo vacío para los renglones automáticos. Si escribís algo acá, la factura sale con un solo renglón que dice esto."></textarea></div>
       <div style="border-top:1px dashed var(--borde);margin:4px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Período facturado</div>
       <div class="grid2">
         <div class="campo"><label>Desde</label><input type="date" id="fPerDesde"></div>
@@ -2536,11 +2540,32 @@ function confirmarPago(){
   db.pagos.push({ id:uid(), f:hoy(), ot:pagoOT.numero, cliente:pagoOT.cliente, medio:$('cMedio').value, monto:+$('cMonto').value||0 });
   guardar(); render(); cerrar('vPago'); toast('Pago registrado. Ahora podés facturar la orden.');
 }
+function construirLineasFactura(factOT, ivaDefE){
+  const tSnap=totalesOT(factOT);
+  const descFact=($('fDescFactura')&&$('fDescFactura').value.trim())||'';
+  const detRep=$('fDetRep')&&$('fDetRep').checked;
+  const moDetInc=$('fMOdet')&&$('fMOdet').checked;
+  let lineasSnap=[];
+  if(descFact){
+    lineasSnap=[{ desc:descFact, cant:1, unidad:'unidades', precio:tSnap.venta, iva:ivaDefE }];
+  } else {
+    if(tSnap.rep>0){
+      let descRep='Repuestos e insumos';
+      if(detRep){ const nombres=(factOT.items||[]).map(i=>(i.desc||'').trim()).filter(Boolean); if(nombres.length) descRep='Repuestos e insumos: '+nombres.join(', '); }
+      lineasSnap.push({ desc:descRep, cant:1, unidad:'unidades', precio:tSnap.rep, iva:ivaDefE });
+    }
+    if((+factOT.moPrecio||0)>0) lineasSnap.push({ desc:((moDetInc&&factOT.moDet)?('Mano de obra — '+factOT.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:+factOT.moPrecio, iva:ivaDefE });
+  }
+  return lineasSnap;
+}
 function abrirFacturar(id){
   factOT = db.ots.find(o=>o.id===id);
   const pago = [...db.pagos].reverse().find(p=>p.ot===factOT.numero) || {};
   $('factInfo').innerHTML = '<b>'+factOT.numero+'</b> · '+esc(factOT.cliente)+' · '+money(pago.monto||totalesOT(factOT).venta);
   $('fArca').checked = false; $('fCerrar').checked = true; $('fNro').value='';
+  if($('fDetRep')) $('fDetRep').checked=false;
+  if($('fMOdet')) $('fMOdet').checked=false;
+  if($('fDescFactura')) $('fDescFactura').value='';
   const cvDef = medioACondVenta(pago.medio); $('fCondVenta').value = cvDef; if($('fCondVenta').selectedIndex<0) $('fCondVenta').value='Contado';
   $('fPerDesde').value = hoy(); $('fPerHasta').value = hoy(); $('fVtoPago').value = hoy();
   $('vFacturar').classList.add('on');
@@ -2593,11 +2618,7 @@ async function confirmarFactura(){
     const cl = factOT.clienteId ? db.clientes.find(c=>c.id===factOT.clienteId) : null;
     const receptorSnap = { nombre:(cl&&(cl.razon||cl.nombre))||factOT.cliente||'', cuit:(cl&&cl.cuit)||'', condiva:(cl&&cl.condiva)||'Consumidor Final', dom:(cl&&(cl.domFisc||cl.dir))||'' };
     const ivaDefE=(db.cfg.ivaDef!==undefined?db.cfg.ivaDef:21);
-    let lineasSnap=[];
-    (factOT.items||[]).forEach(i=>{ const precio=+i.precio||0,cant=+i.cant||0; if(precio>0&&cant>0) lineasSnap.push({ desc:(i.desc||'Ítem'), cant, unidad:(i.unidad&&i.unidad!=='Unidad')?i.unidad:'unidades', precio, iva:(i.iva!==undefined?i.iva:ivaDefE) }); });
-    const tSnap=totalesOT(factOT);
-    if(!lineasSnap.length && tSnap.rep>0) lineasSnap=[{ desc:'Repuestos e insumos', cant:1, unidad:'unidades', precio:tSnap.rep, iva:ivaDefE }];
-    if((+factOT.moPrecio||0)>0) lineasSnap.push({ desc:(factOT.moDet?('Mano de obra — '+factOT.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:+factOT.moPrecio, iva:ivaDefE });
+    const lineasSnap=construirLineasFactura(factOT, ivaDefE);
     const arca = { cae:arcaData.cae, caeVto:arcaData.caeVto, cbteTipo:arcaData.cbteTipo, ptoVta:arcaData.ptoVta, nro:arcaData.nro, qrUrl:arcaData.qrUrl, impNeto:arcaData.impNeto, impIVA:arcaData.impIVA,
       ivaArr:arcaData.ivaArr||[], total:totalesOT(factOT).venta, fecha:hoy(), receptor:receptorSnap, condVenta:($('fCondVenta').value||'Contado'), lineas:lineasSnap, soc:factOT.soc,
       periodo:{ desde:$('fPerDesde').value||hoy(), hasta:$('fPerHasta').value||hoy(), vto:$('fVtoPago').value||hoy() } };
