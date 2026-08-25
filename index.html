@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07s factura-renglones -->
+<!-- build 2026-08-07t detalle-cantidad -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2551,7 +2551,7 @@ function construirLineasFactura(factOT, ivaDefE){
   } else {
     if(tSnap.rep>0){
       let descRep='Repuestos e insumos';
-      if(detRep){ const nombres=(factOT.items||[]).map(i=>(i.desc||'').trim()).filter(Boolean); if(nombres.length) descRep='Repuestos e insumos: '+nombres.join(', '); }
+      if(detRep){ const nombres=(factOT.items||[]).map(i=>{ const d=(i.desc||'').trim(); if(!d) return ''; const c=+i.cant||0; if(i.unidad && i.unidad!=='Unidad') return (c?c+' '+i.unidad+' ':'')+d; return (c?c+'× ':'')+d; }).filter(Boolean); if(nombres.length) descRep='Repuestos e insumos: '+nombres.join(', '); }
       lineasSnap.push({ desc:descRep, cant:1, unidad:'unidades', precio:tSnap.rep, iva:ivaDefE });
     }
     if((+factOT.moPrecio||0)>0) lineasSnap.push({ desc:((moDetInc&&factOT.moDet)?('Mano de obra — '+factOT.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:+factOT.moPrecio, iva:ivaDefE });
