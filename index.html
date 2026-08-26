@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07v logo-terra-negro -->
+<!-- build 2026-08-07w terra-borde-azul -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -3471,7 +3471,7 @@ function armarFacturaARCA(o){
 }
 function armarHoja(o, modo){
   const esFactArca = modo==='cliente' && o.arca && o.arca.cae;
-  if(esFactArca){ armarFacturaARCA(o); $('hoja').style.setProperty('--acc', o.soc==='AT' ? '#c2372e' : '#8f1a17'); return; }
+  if(esFactArca){ armarFacturaARCA(o); $('hoja').style.setProperty('--acc', o.soc==='AT' ? '#c2372e' : '#1c3f66'); return; }
   const cfg = db.cfg[o.soc], logo = o.soc==='AT' ? LOGO_AT : LOGO_TQ;
   const esFact = modo==='cliente' && o.arca && o.arca.cae;
   const esPresu = (o.docCli==='presupuesto');
@@ -3556,7 +3556,7 @@ function armarHoja(o, modo){
         ? (CBTE_LABEL[o.arca.cbteTipo]||'Factura')+' N° '+String(o.arca.ptoVta).padStart(4,'0')+'-'+String(o.arca.nro).padStart(8,'0')+' · CAE '+esc(o.arca.cae)+' · Comprobante autorizado.'
         : docTitCap+' N° '+esc(o.numero)+' emitido el '+fFecha(o.fecha)+'. Documento no válido como factura.')+'</div>'
       : '');
-  $('hoja').style.setProperty('--acc', o.soc==='AT' ? '#c2372e' : '#8f1a17');
+  $('hoja').style.setProperty('--acc', o.soc==='AT' ? '#c2372e' : '#1c3f66');
 }
 
 /* ================= INIT ================= */
