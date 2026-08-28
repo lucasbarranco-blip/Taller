@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07y condicion-iva -->
+<!-- build 2026-08-07z notas-credito-proveedor -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1180,6 +1180,10 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div class="campo"><label>Fecha</label><input type="date" id="pFecha"></div>
         <div class="campo"><label>Vencimiento</label><input type="date" id="pVenc"></div>
       </div>
+      <div class="grid3" style="margin-top:2px">
+        <div class="campo" style="margin:0"><label>Tipo de comprobante</label><select id="pTipoComp" onchange="pintarTipoComp()"><option value="factura">Factura de compra</option><option value="nc">Nota de crédito</option></select></div>
+        <div class="campo" style="margin:0;grid-column:span 2;justify-content:flex-end"><div id="pTipoCompHint" style="font-size:11px;color:var(--gris2);line-height:1.4"></div></div>
+      </div>
       <div id="pProvBanco" class="prov-banco" hidden></div>
       <div class="grid3">
         <div class="campo"><label>Nº de factura</label><input id="pFactura" placeholder="A-0001-00001234" style="font-family:var(--mono)"></div>
@@ -1664,7 +1668,7 @@ function renderPanel(){
   $('panelStock').innerHTML = bajos.length ? bajos.map(i=>'<tr><td class="num" style="text-align:left">'+esc(i.sku)+'</td><td>'+esc(i.prod)+'</td><td class="num" style="color:var(--rojo);font-weight:700">'+i.stock+'</td><td class="num">'+i.min+'</td></tr>').join('') : '<tr><td colspan="4" class="vacio">Sin alertas de stock.</td></tr>';
 
   const lim = new Date(); lim.setDate(lim.getDate()+15);
-  const venc = db.provs.filter(p=>!p.pagada && p.venc && new Date(p.venc)<=lim).sort((a,b)=>a.venc.localeCompare(b.venc));
+  const venc = db.provs.filter(p=>!p.pagada && !esNotaCredProv(p) && p.venc && new Date(p.venc)<=lim).sort((a,b)=>a.venc.localeCompare(b.venc));
   $('panelVenc').innerHTML = venc.length ? venc.map(p=>'<tr><td>'+esc(p.nombre)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td><span class="chip sin" style="color:'+(p.venc<hoy()?'#c2372e;background:#fbe9e7':'#a16207;background:#fdf1d7')+'">'+fFecha(p.venc)+'</span></td><td class="num">'+money(montoProv(p))+'</td></tr>').join('') : '<tr><td colspan="4" class="vacio">Nada por vencer en 15 días.</td></tr>';
 
   const turnosHoy = db.turnos.filter(t=>t.fecha===hoy()).sort((a,b)=>a.hora.localeCompare(b.hora));
@@ -2027,10 +2031,12 @@ function abrirProv(id){
   const p = provEdit || {};
   $('pNombre').value = p.nombre||''; $('pProvId').value = p.proveedorId||''; $('pFecha').value = p.fecha||hoy(); $('pVenc').value = p.venc||''; pintarBancoHint();
   $('pFactura').value = p.factura||''; $('pTotal').value = p.total||''; $('pSoc').value = p.soc||'AT'; $('pIva').value = (p.iva!==undefined&&p.iva!==null)?p.iva:((db.cfg&&db.cfg.ivaDef!==undefined)?db.cfg.ivaDef:21); $('pPercepPct').value = p.percepPct||''; $('pPercepMonto').value = p.percep||'';
+  $('pTipoComp').value = p.esNC ? 'nc' : 'factura';
   $('provItems').innerHTML = '';
   (p.items && p.items.length ? p.items : []).forEach(agregarItemProv);
   pintarAdj();
   actualizarTotalProv();
+  pintarTipoComp();
   $('vProv').classList.add('on');
 }
 function soltarAdj(e){ e.preventDefault(); e.currentTarget.classList.remove('sobre'); const f=e.dataTransfer.files[0]; if(f) cargarAdj(f); }
@@ -2197,6 +2203,22 @@ function borrarProvReg(){
 }
 // Importe real de una factura de proveedor = mercadería con IVA (total) + percepción IIBB (se suma aparte)
 function montoProv(p){ return (p.total||0) + (p.percep||0); }
+// ¿Es nota de crédito? (marcada con el toggle, o comprobantes viejos cargados en negativo)
+function esNotaCredProv(p){ return !!p.esNC || montoProv(p) < 0; }
+// Monto FIRMADO: la nota de crédito resta (crédito a favor); la factura suma (gasto)
+function montoProvSigned(p){ const m = montoProv(p); return p.esNC ? -Math.abs(m) : m; }
+// Actualiza el textito de ayuda del selector Factura / Nota de crédito
+function pintarTipoComp(){
+  const sel=$('pTipoComp'), hint=$('pTipoCompHint'); if(!sel) return;
+  const nc = sel.value==='nc';
+  if(hint) hint.innerHTML = nc
+    ? 'Cargá el monto en <b>positivo</b>. La nota de crédito <b>descuenta</b> el saldo del proveedor y en el libro contable suma como <b>crédito a favor</b> (no como gasto).'
+    : '';
+  const lblTot = document.querySelector('label[for=\"pTotal\"]');
+  const totCampo = $('pTotal') && $('pTotal').closest('.campo');
+  const totLabel = totCampo ? totCampo.querySelector('label') : null;
+  if(totLabel) totLabel.textContent = nc ? 'Monto de la NC (con IVA)' : 'Total (con IVA)';
+}
 function calcPercep(){
   const total=+$('pTotal').value||0, iva=+$('pIva').value||0, pct=+$('pPercepPct').value||0;
   // La percepción se calcula sobre el neto gravado (total sin IVA) y se suma por fuera del total.
@@ -2212,8 +2234,9 @@ function actualizarTotalProv(){
 }
 function guardarProv(){
   if(!$('pNombre').value.trim()) return toast('Falta el nombre del proveedor.');
-  const d = { nombre:$('pNombre').value.trim(), proveedorId:$('pProvId').value||'', fecha:$('pFecha').value||hoy(), venc:$('pVenc').value, soc:$('pSoc').value,
-    factura:$('pFactura').value.trim(), total:+$('pTotal').value||0, iva:($('pIva').value===''?21:+$('pIva').value||0), percepPct:+$('pPercepPct').value||0, percep:+$('pPercepMonto').value||0, items:leerItemsProv(), adj:provAdj };
+  const esNC = ($('pTipoComp') && $('pTipoComp').value==='nc');
+  const d = { nombre:$('pNombre').value.trim(), proveedorId:$('pProvId').value||'', fecha:$('pFecha').value||hoy(), venc:$('pVenc').value, soc:$('pSoc').value, esNC:esNC,
+    factura:$('pFactura').value.trim(), total:Math.abs(+$('pTotal').value||0), iva:($('pIva').value===''?21:+$('pIva').value||0), percepPct:+$('pPercepPct').value||0, percep:Math.abs(+$('pPercepMonto').value||0), items:leerItemsProv(), adj:provAdj };
   if(provEdit){ Object.assign(provEdit, d); }
   else { if(limiteDemo('provs','facturas de proveedor')) return; d.id=uid(); d.pagada=false; db.provs.push(d); }
   try{ guardar(); }catch(e){ toast('Sin espacio local: el adjunto es muy pesado. Quitá el adjunto o exportá un respaldo y limpiá facturas viejas.'); return; }
@@ -2239,10 +2262,12 @@ function setVistaProv(v){
 function toggleCC(id){ ccAbiertos.has(id)?ccAbiertos.delete(id):ccAbiertos.add(id); const el=document.getElementById(id); if(el) el.classList.toggle('abierto'); }
 function toggleArchCC(id){ const el=document.getElementById('arch_'+id); if(!el) return; el.hidden=!el.hidden; const b=document.getElementById('archbtn_'+id); if(b) b.textContent=(el.hidden?'Ver ':'Ocultar ')+b.dataset.n+' pagada'+(b.dataset.n!=='1'?'s':''); }
 function filaProvCC(p){
-  const est = p.pagada ? ['Pagada'+(p.medio?' · '+p.medio:''),'#0e8a5f','#e3f5ee'] : (p.venc&&p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
-  return '<tr><td style="width:100px">'+fFecha(p.fecha)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+'</td><td style="width:100px">'+fFecha(p.venc)+'</td><td class="num">'+money(montoProv(p))+'</td>'+
+  const nc = esNotaCredProv(p);
+  const est = p.pagada ? [(nc?'Aplicada':'Pagada')+(p.medio?' · '+p.medio:''),'#0e8a5f','#e3f5ee'] : (nc ? ['Crédito','#0e8a5f','#e3f5ee'] : (p.venc&&p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']));
+  const ncTag = nc ? ' <span class="chip sin" style="color:#0e8a5f;background:#e3f5ee;font-size:10px;font-weight:700">NC</span>' : '';
+  return '<tr><td style="width:100px">'+fFecha(p.fecha)+'</td><td class="num" style="text-align:left">'+esc(p.factura||'—')+ncTag+'</td><td style="width:100px">'+fFecha(p.venc)+'</td><td class="num"'+(nc?' style="color:#0e8a5f;font-weight:600"':'')+'>'+money(montoProvSigned(p))+'</td>'+
     '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
-    '<td style="white-space:nowrap;text-align:right;width:150px"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?'→ Pendiente':'✓ Pagar')+'</button></td></tr>';
+    '<td style="white-space:nowrap;text-align:right;width:150px"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?(nc?'→ No aplicada':'→ Pendiente'):(nc?'✓ Aplicar':'✓ Pagar'))+'</button></td></tr>';
 }
 function renderProvCC(){
   if(!$('boxProvCC')) return;
@@ -2257,10 +2282,10 @@ function renderProvCC(){
     const fs=g[k];
     const pend=fs.filter(p=>!p.pagada).sort((a,b)=>(a.venc||a.fecha||'').localeCompare(b.venc||b.fecha||''));
     const pagadas=fs.filter(p=>p.pagada).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-    const facturado=fs.reduce((a,p)=>a+montoProv(p),0);
-    const saldo=pend.reduce((a,p)=>a+montoProv(p),0);
-    const vencidas=pend.filter(p=>p.venc&&p.venc<hoy());
-    const vencido=vencidas.reduce((a,p)=>a+montoProv(p),0);
+    const facturado=fs.reduce((a,p)=>a+montoProvSigned(p),0);
+    const saldo=pend.reduce((a,p)=>a+montoProvSigned(p),0);
+    const vencidas=pend.filter(p=>p.venc&&p.venc<hoy()&&!esNotaCredProv(p));
+    const vencido=vencidas.reduce((a,p)=>a+montoProvSigned(p),0);
     const prox=pend.filter(p=>p.venc).map(p=>p.venc).sort()[0];
     const gid='cc_'+ix;
     if(ccAbiertos.size===0 && claves.length===1) ccAbiertos.add(gid);
@@ -2292,11 +2317,13 @@ function renderProvCC(){
 let provFiltro='pend';
 function setProvFiltro(v){ provFiltro=v; ['pend','arch','todas'].forEach(x=>{ const b=$('pf'+(x==='pend'?'Pend':x==='arch'?'Arch':'Todas')); if(b) b.classList.toggle('on', x===v); }); renderProvs(); }
 function filaFactura(p){
-  const est = p.pagada ? ['Pagada'+(p.medio?' · '+p.medio:''),'#0e8a5f','#e3f5ee'] : (p.venc && p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']);
+  const nc = esNotaCredProv(p);
+  const est = p.pagada ? [(nc?'Aplicada':'Pagada')+(p.medio?' · '+p.medio:''),'#0e8a5f','#e3f5ee'] : (nc ? ['Crédito','#0e8a5f','#e3f5ee'] : (p.venc && p.venc<hoy() ? ['Vencida','#c2372e','#fbe9e7'] : ['Pendiente','#a16207','#fdf1d7']));
+  const ncTag = nc ? ' <span class="chip sin" style="color:#0e8a5f;background:#e3f5ee;font-size:10px;font-weight:700">NC</span>' : '';
   const adj = p.adj ? '<span class="chip-adj" style="cursor:pointer" onclick="verAdjuntoProv(\''+p.id+'\')">📎 '+(p.adj.tipo==='pdf'?'PDF':'Foto')+'</span>' : '<span style="color:var(--gris2)">—</span>';
-  return '<tr><td><b>'+esc(p.nombre)+'</b></td><td>'+fFecha(p.fecha)+'</td><td>'+fFecha(p.venc)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+'</td><td>'+adj+'</td><td class="num">'+(p.items?p.items.length:0)+'</td><td class="num">'+money(montoProv(p))+'</td>'+
+  return '<tr><td><b>'+esc(p.nombre)+'</b></td><td>'+fFecha(p.fecha)+'</td><td>'+fFecha(p.venc)+'</td><td class="num" style="text-align:left">'+esc(p.factura)+ncTag+'</td><td>'+adj+'</td><td class="num">'+(p.items?p.items.length:0)+'</td><td class="num"'+(nc?' style="color:#0e8a5f;font-weight:600"':'')+'>'+money(montoProvSigned(p))+'</td>'+
     '<td><span class="chip" style="color:'+est[1]+';background:'+est[2]+'">'+est[0]+'</span></td>'+
-    '<td style="white-space:nowrap"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver detalle</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?'→ Pendiente':'✓ Pagada')+'</button></td></tr>';
+    '<td style="white-space:nowrap"><button class="btn blanco mini" onclick="abrirProv(\''+p.id+'\')">Ver detalle</button> <button class="btn blanco mini" onclick="togglePagada(\''+p.id+'\')">'+(p.pagada?(nc?'→ No aplicada':'→ Pendiente'):(nc?'✓ Aplicar':'✓ Pagada'))+'</button></td></tr>';
 }
 function renderProvs(){
   const todas = [...db.provs].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
@@ -2310,7 +2337,7 @@ function renderProvs(){
     const claves=Object.keys(g).sort((a,b)=>a.localeCompare(b));
     filas = claves.map(k=>{
       const arr=g[k].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-      const tot=arr.reduce((a,p)=>a+montoProv(p),0);
+      const tot=arr.reduce((a,p)=>a+montoProvSigned(p),0);
       return '<tr style="background:#f4f5f7"><td colspan="6" style="font-weight:800">'+esc(k)+' <span style="color:var(--gris2);font-weight:600;font-size:12px">· '+arr.length+' factura'+(arr.length!==1?'s':'')+'</span></td><td class="num" style="font-weight:800">'+money(tot)+'</td><td colspan="2"></td></tr>'+
         arr.map(filaFactura).join('');
     }).join('');
@@ -2748,7 +2775,7 @@ function aplicarLapsoConta(){
 function movimientosConta(d0,d1,soc){
   const l = [];
   db.pagos.forEach(p=>l.push({ refId:p.id, f:p.f, soc:socDe(p.ot), tipo:'Ingreso', medio:p.medio||'', cat:'Cobro de orden', det:p.ot+' · '+p.cliente+' ('+p.medio+')', origen:'Facturación', monto:p.monto }));
-  db.provs.forEach(p=>{ if(p.pagada) l.push({ refId:p.id, f:p.fpago||p.fecha, soc:p.soc||'', tipo:'Egreso', medio:p.medio||'', cat:'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:montoProv(p) }); });
+  db.provs.forEach(p=>{ if(p.pagada){ const ms=montoProvSigned(p); const nc=esNotaCredProv(p); l.push({ refId:p.id, f:p.fpago||p.fecha, soc:p.soc||'', tipo:'Egreso', esNC:nc, medio:p.medio||'', cat: nc?'Nota de crédito de proveedor':'Compra a proveedor', det:p.nombre+(p.factura?' · '+p.factura:''), origen:'Proveedores', monto:ms }); } });
   db.conta.forEach(c=>l.push({ id:c.id, f:c.f, soc:c.soc||'', tipo:c.tipo, medio:c.medio||'', cat:c.cat, det:c.det, origen:'Manual', monto:c.monto }));
   (db.preentregas||[]).forEach(pe=>{ if(pe.cobrado) l.push({ refId:pe.id, f:pe.fcobro||pe.f, soc:pe.soc||'', tipo:'Ingreso', medio:pe.medio||'', cat:'Preentrega / cobro por fuera', det:pe.det+(pe.factura?' · '+pe.factura:''), origen:'Preentrega', monto:pe.monto }); });
   return l.filter(m=>(!d0 || (m.f||'')>=d0) && (!d1 || (m.f||'')<=d1) && (!soc || m.soc===soc))
@@ -2757,17 +2784,18 @@ function movimientosConta(d0,d1,soc){
 const kfmt = v => Math.abs(v)>=1e6 ? '$'+(v/1e6).toFixed(1).replace('.',',').replace(',0','')+'M' : Math.abs(v)>=1e3 ? '$'+Math.round(v/1e3)+'K' : '$'+Math.round(v);
 function chartFlujo(meses){
   const W=660, H=210, padL=8, padB=34, padT=26;
-  const max = Math.max(1, ...meses.flatMap(m=>[m.ing, m.egr]));
+  const max = Math.max(1, ...meses.flatMap(m=>[Math.max(0,m.ing), Math.max(0,m.egr)]));
   const grp = (W-2*padL)/meses.length, bw = Math.min(26, grp/2.6);
-  const y = v => H-padB-(v/max)*(H-padB-padT);
+  const y = v => H-padB-(Math.max(0,v)/max)*(H-padB-padT);
   let s = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" xmlns="http://www.w3.org/2000/svg">';
   meses.forEach((m,i)=>{
     const cx = padL + grp*i + grp/2;
-    const yi = y(m.ing), ye = y(m.egr);
+    const ingV = Math.max(0,m.ing), egrV = Math.max(0,m.egr);
+    const yi = y(ingV), ye = y(egrV);
     s += '<rect x="'+(cx-bw-2)+'" y="'+yi+'" width="'+bw+'" height="'+(H-padB-yi)+'" rx="4" fill="#0e8a5f"/>';
     s += '<rect x="'+(cx+2)+'" y="'+ye+'" width="'+bw+'" height="'+(H-padB-ye)+'" rx="4" fill="#e0685e"/>';
-    if(m.ing) s += '<text x="'+(cx-bw/2-2)+'" y="'+(yi-5)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0e8a5f" font-family="ui-monospace,monospace">'+kfmt(m.ing)+'</text>';
-    if(m.egr) s += '<text x="'+(cx+bw/2+2)+'" y="'+(ye-5)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#c2372e" font-family="ui-monospace,monospace">'+kfmt(m.egr)+'</text>';
+    if(ingV) s += '<text x="'+(cx-bw/2-2)+'" y="'+(yi-5)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0e8a5f" font-family="ui-monospace,monospace">'+kfmt(ingV)+'</text>';
+    if(egrV) s += '<text x="'+(cx+bw/2+2)+'" y="'+(ye-5)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#c2372e" font-family="ui-monospace,monospace">'+kfmt(egrV)+'</text>';
     const res = m.ing-m.egr;
     s += '<text x="'+cx+'" y="'+(H-20)+'" text-anchor="middle" font-size="10.5" font-weight="700" fill="#3a4254">'+m.lbl+'</text>';
     s += '<text x="'+cx+'" y="'+(H-7)+'" text-anchor="middle" font-size="9" font-weight="700" font-family="ui-monospace,monospace" fill="'+(res>=0?'#0e8a5f':'#c2372e')+'">'+(res>=0?'+':'')+kfmt(res).replace('$','$')+'</text>';
@@ -2806,7 +2834,7 @@ function renderConta(){
   // desglose por categoría del período
   const catAgg = (tipo) => {
     const g={}; l.filter(m=>tipo==='Ingreso'?m.tipo==='Ingreso':m.tipo!=='Ingreso').forEach(m=>{ g[m.cat||'General']=(g[m.cat||'General']||0)+m.monto; });
-    return Object.entries(g).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    return Object.entries(g).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
   };
   const barras = (pares, tot, col) => pares.map(p=>
     '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;margin-bottom:3px"><span>'+esc(p[0])+'</span><span style="font-family:var(--mono)">'+money(p[1])+' <span style="color:var(--gris2)">('+Math.round(p[1]/tot*100)+'%)</span></span></div>'+
@@ -2827,8 +2855,9 @@ function renderConta(){
   const preVentasP = (db.preentregas||[]).filter(pe=>pe.fFact && (!d0||pe.fFact>=d0) && (!d1||pe.fFact<=d1) && (!socConta||pe.soc===socConta));
   const netoProv = p => (p.total||0)/(1 + ((p.iva||0)/100));
   const ivaDeProv = p => netoProv(p)*((p.iva||0)/100);
-  const ivaCompra = comprasP.reduce((a,p)=>a+ivaDeProv(p),0);
-  const percepTot = comprasP.reduce((a,p)=>a+(p.percep||0),0);
+  const signP = p => (p.esNC ? -1 : 1); // la NC resta crédito fiscal (los viejos cargados en negativo ya restan por su total)
+  const ivaCompra = comprasP.reduce((a,p)=>a+signP(p)*ivaDeProv(p),0);
+  const percepTot = comprasP.reduce((a,p)=>a+signP(p)*(p.percep||0),0);
   const ivaVenta = ventasP.reduce((a,f)=>a+(gravaVenta(f)?ivaDe(f.monto, ivaRate):0),0)
                  + preVentasP.reduce((a,pe)=>a+ivaDe(pe.monto, ivaRate),0);
   const nVentaComprob = ventasP.filter(gravaVenta).length + preVentasP.length;
@@ -2847,7 +2876,7 @@ function renderConta(){
     '</div>'+
     '<div class="grid2" style="gap:16px;align-items:start">'+
       '<div><div style="font-size:11px;font-weight:800;color:var(--ok);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Compras</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Proveedor</th><th class="num">Total</th><th class="num">IVA</th><th class="num">Percep.</th><th></th></tr></thead><tbody>'+
-        (comprasP.length ? comprasP.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(p=>'<tr><td>'+fFecha(p.fecha)+'</td><td>'+esc(p.nombre||'—')+'</td><td class="num">'+money(montoProv(p))+'</td><td class="num">'+money(ivaDeProv(p))+'</td><td class="num">'+(p.percep?money(p.percep):'—')+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="setVistaProv(\'facturas\');abrirProv(\''+p.id+'\')">Editar</button></td></tr>').join('') : '<tr><td colspan="6" class="vacio">Sin compras en el período.</td></tr>')+
+        (comprasP.length ? comprasP.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(p=>{ const nc=esNotaCredProv(p); const ncTag=nc?' <span class="chip sin" style="color:#0e8a5f;background:#e3f5ee;font-size:10px;font-weight:700">NC</span>':''; const st=nc?' style="color:#0e8a5f;font-weight:600"':''; return '<tr><td>'+fFecha(p.fecha)+'</td><td>'+esc(p.nombre||'—')+ncTag+'</td><td class="num"'+st+'>'+money(montoProvSigned(p))+'</td><td class="num"'+st+'>'+money(signP(p)*ivaDeProv(p))+'</td><td class="num">'+(p.percep?money(signP(p)*(p.percep||0)):'—')+'</td><td style="text-align:right"><button class="btn blanco mini" onclick="setVistaProv(\'facturas\');abrirProv(\''+p.id+'\')">Editar</button></td></tr>'; }).join('') : '<tr><td colspan="6" class="vacio">Sin compras en el período.</td></tr>')+
       '</tbody></table></div></div>'+
       '<div><div style="font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Ventas facturadas</div><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Total</th><th class="num">IVA</th><th></th></tr></thead><tbody>'+
         (filasVenta.length ? filasVenta.map(f=>'<tr><td>'+fFecha(f.f)+'</td><td>'+f.cli+'</td><td class="num">'+money(f.monto)+'</td><td class="num">'+money(f.iva)+'</td><td style="text-align:right">'+f.btn+'</td></tr>').join('') : '<tr><td colspan="5" class="vacio">Sin ventas facturadas en el período.</td></tr>')+
@@ -2860,11 +2889,15 @@ function renderConta(){
   let saldo = 0; asc.forEach(m=>{ saldo += (m.tipo==='Ingreso'?1:-1)*m.monto; m.saldo = saldo; });
   const color = { 'Ingreso':['#0e8a5f','#e3f5ee'], 'Egreso':['#c2372e','#fbe9e7'], 'Otro costo':['#a16207','#fdf1d7'] };
   const filaMov = (m)=>{
-    const c = color[m.tipo]||color['Otro costo'];
+    const esCred = m.esNC || (m.tipo!=='Ingreso' && m.monto<0);
+    const c = esCred ? ['#0e8a5f','#e3f5ee'] : (color[m.tipo]||color['Otro costo']);
+    const chipTxt = esCred ? 'Nota de crédito' : m.tipo;
     const cta = cuentaDe(m.medio);
     const mColor = cta==='Efectivo' ? ['#0e8a5f','#e3f5ee'] : (cta==='Banco' ? ['#1c4fd6','#e7edfd'] : ['#8b93a1','#eceef2']);
-    return '<tr><td>'+fFecha(m.f)+'</td><td style="font-size:12px;font-weight:600;color:var(--gris)">'+(m.soc?socNombre[m.soc]:'—')+'</td><td><span class="chip sin" style="color:'+c[0]+';background:'+c[1]+'">'+m.tipo+'</span></td><td>'+(m.medio?'<span class="chip sin" style="color:'+mColor[0]+';background:'+mColor[1]+'">'+esc(m.medio)+'</span>':'<span style="color:var(--gris2)">—</span>')+'</td><td>'+esc(m.cat)+'</td><td>'+esc(m.det)+'</td><td style="color:var(--gris2);font-size:12px">'+m.origen+'</td>'+
-    '<td class="num" style="color:'+(m.tipo==='Ingreso'?'var(--ok)':'var(--rojo)')+';font-weight:600">'+(m.tipo==='Ingreso'?'+':'−')+money(m.monto).slice(1)+'</td>'+
+    const montoTxt = (m.tipo==='Ingreso'||esCred?'+':'−')+money(Math.abs(m.monto)).slice(1);
+    const montoCol = (m.tipo==='Ingreso'||esCred) ? 'var(--ok)' : 'var(--rojo)';
+    return '<tr><td>'+fFecha(m.f)+'</td><td style="font-size:12px;font-weight:600;color:var(--gris)">'+(m.soc?socNombre[m.soc]:'—')+'</td><td><span class="chip sin" style="color:'+c[0]+';background:'+c[1]+'">'+chipTxt+'</span></td><td>'+(m.medio?'<span class="chip sin" style="color:'+mColor[0]+';background:'+mColor[1]+'">'+esc(m.medio)+'</span>':'<span style="color:var(--gris2)">—</span>')+'</td><td>'+esc(m.cat)+'</td><td>'+esc(m.det)+'</td><td style="color:var(--gris2);font-size:12px">'+m.origen+'</td>'+
+    '<td class="num" style="color:'+montoCol+';font-weight:600">'+montoTxt+'</td>'+
     '<td class="num" style="font-weight:700;color:'+(m.saldo>=0?'var(--tinta)':'var(--rojo)')+'">'+money(m.saldo)+'</td>'+
     '<td style="white-space:nowrap">'+accionesMov(m)+'</td></tr>';
   };
