@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-07x factura-items -->
+<!-- build 2026-08-07y condicion-iva -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1002,7 +1002,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
           <div class="campo"><label>CUIT / DNI</label><input id="efCuit" style="font-family:var(--mono)"></div>
         </div>
         <div class="grid2">
-          <div class="campo"><label>Condición IVA</label><select id="efCondiva"><option>Consumidor Final</option><option>Responsable Inscripto</option><option>Monotributo</option><option>Exento</option></select></div>
+          <div class="campo"><label>Condición IVA</label><select id="efCondiva"><option>Consumidor Final</option><option>IVA Responsable Inscripto</option><option>Responsable Monotributo</option><option>IVA Sujeto Exento</option><option>Sujeto No Categorizado</option><option>Proveedor del Exterior</option><option>Cliente del Exterior</option><option>IVA Liberado – Ley Nº 19.640</option><option>Monotributista Social</option><option>IVA No Alcanzado</option><option>Monotributo Trabajador Independiente Promovido</option></select></div>
           <div class="campo"><label>Condición de venta</label><select id="efCondVenta"><option>Contado</option><option>Tarjeta de Débito</option><option>Tarjeta de Crédito</option><option>Cuenta Corriente</option><option>Cheque</option><option>Transferencia Bancaria</option><option>Otra</option><option>Otros medios de pago electrónico</option></select></div>
         </div>
         <div class="campo"><label>Domicilio</label><input id="efDom"></div>
@@ -1246,7 +1246,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         </div>
         <div class="grid2">
           <div class="campo"><label>CUIT / DNI <span style="font-weight:500;color:var(--gris2);font-size:10px">(para factura)</span></label><input id="cliCuit" placeholder="30-71812882-6" style="font-family:var(--mono)"></div>
-          <div class="campo"><label>Condición IVA</label><select id="cliCondiva"><option>Consumidor Final</option><option>Responsable Inscripto</option><option>Monotributo</option><option>Exento</option></select></div>
+          <div class="campo"><label>Condición IVA</label><select id="cliCondiva"><option>Consumidor Final</option><option>IVA Responsable Inscripto</option><option>Responsable Monotributo</option><option>IVA Sujeto Exento</option><option>Sujeto No Categorizado</option><option>Proveedor del Exterior</option><option>Cliente del Exterior</option><option>IVA Liberado – Ley Nº 19.640</option><option>Monotributista Social</option><option>IVA No Alcanzado</option><option>Monotributo Trabajador Independiente Promovido</option></select></div>
         </div>
         <div style="border-top:1px dashed var(--borde);margin:6px 0 8px;padding-top:8px;font-size:11px;font-weight:800;color:var(--primario);text-transform:uppercase;letter-spacing:.04em">Datos para facturar (ARCA)</div>
         <div class="grid2">
@@ -2596,6 +2596,7 @@ async function facturarConArca(ot, tipoSel){
   if(!a.ptoVta) throw new Error('Falta el punto de venta (Web Service) de '+(socNombre[soc]||soc)+' en Configuración.');
   const cl = ot.clienteId ? db.clientes.find(c=>c.id===ot.clienteId) : null;
   const receptor = { condicionIVA: (cl&&cl.condiva) || 'Consumidor Final' };
+  receptor.condicionIVAId = condIvaId(receptor.condicionIVA);
   if(tipoSel==='Factura A') receptor.forzarFacturaA = true;
   const docRaw = ((cl&&cl.cuit)||'').replace(/\D/g,'');
   if(docRaw.length===11) receptor.cuit = docRaw; else if(docRaw.length>=7) receptor.dni = docRaw;
@@ -2964,7 +2965,7 @@ function editarFactura(id){
   ['efFecha','efMonto','efTipo','efNro'].forEach(k=>{ const el=$(k); if(el){ el.disabled=esArca; el.style.opacity=esArca?0.55:1; } });
   if(esArca){
     const a=f.arcaData, r=a.receptor||{}, p=a.periodo||{};
-    $('efRazon').value=r.nombre||''; $('efCuit').value=r.cuit||''; $('efCondiva').value=r.condiva||'Consumidor Final'; if($('efCondiva').selectedIndex<0) $('efCondiva').value='Consumidor Final'; $('efDom').value=r.dom||'';
+    $('efRazon').value=r.nombre||''; $('efCuit').value=r.cuit||''; $('efCondiva').value=condIvaLabel(r.condiva||'Consumidor Final'); if($('efCondiva').selectedIndex<0) $('efCondiva').value='Consumidor Final'; $('efDom').value=r.dom||'';
     $('efCondVenta').value=a.condVenta||'Contado'; if($('efCondVenta').selectedIndex<0) $('efCondVenta').value='Contado';
     $('efPerDesde').value=p.desde||''; $('efPerHasta').value=p.hasta||''; $('efVtoPago').value=p.vto||'';
     $('efDetalle').value=(a.lineas&&a.lineas.length===1)?(a.lineas[0].desc||''):'';
@@ -3121,6 +3122,7 @@ async function emitirNotaCredito(){
   }
   const rec=a.receptor||{};
   const receptor={ condicionIVA: rec.condiva||'Consumidor Final' };
+  receptor.condicionIVAId = condIvaId(receptor.condicionIVA);
   const docRaw=String(rec.cuit||'').replace(/\D/g,'');
   if(docRaw.length===11) receptor.cuit=docRaw; else if(docRaw.length>=7) receptor.dni=docRaw;
   const cbteAsoc={ tipo:a.cbteTipo, ptoVta:a.ptoVta, nro:a.nro, fecha:(a.fecha||'').replace(/-/g,'') };
@@ -3327,7 +3329,9 @@ function imprimirOT(modo){
 /* ===== FACTURA OFICIAL ARCA (layout idéntico al comprobante web) ===== */
 function fnum2(n){ n=Math.round((+n||0)*100)/100; return n.toFixed(2).replace('.',','); }
 function fmtCaeVto(s){ s=String(s||''); if(/^\d{8}$/.test(s)) return s.slice(6,8)+'/'+s.slice(4,6)+'/'+s.slice(0,4); return s||'—'; }
-function condIvaLabel(c){ const l=(c||'').trim().toLowerCase(); if(l.includes('exento')) return 'IVA Sujeto Exento'; if(l.includes('monotrib')) return 'Responsable Monotributo'; if(l.includes('inscripto')) return 'IVA Responsable Inscripto'; if(l.includes('consumidor')) return 'Consumidor Final'; return (c||'Consumidor Final'); }
+function condIvaLabel(c){ const t=(c||'').trim(); const up={ 'Responsable Inscripto':'IVA Responsable Inscripto', 'Monotributo':'Responsable Monotributo', 'Exento':'IVA Sujeto Exento' }; return up[t] || t || 'Consumidor Final'; }
+const COND_IVA_ID = { 'IVA Responsable Inscripto':1,'Responsable Inscripto':1,'IVA Sujeto Exento':4,'Exento':4,'Consumidor Final':5,'Responsable Monotributo':6,'Monotributo':6,'Sujeto No Categorizado':7,'Proveedor del Exterior':8,'Cliente del Exterior':9,'IVA Liberado – Ley Nº 19.640':10,'IVA Liberado - Ley Nº 19.640':10,'Monotributista Social':13,'IVA No Alcanzado':15,'Monotributo Trabajador Independiente Promovido':16 };
+function condIvaId(c){ const t=(c||'').trim(); if(COND_IVA_ID[t]!=null) return COND_IVA_ID[t]; const l=t.toLowerCase(); if(l.includes('no alcanzado')) return 15; if(l.includes('liberado')) return 10; if(l.includes('no categorizado')) return 7; if(l.includes('proveedor del exterior')) return 8; if(l.includes('cliente del exterior')) return 9; if(l.includes('monotributista social')) return 13; if(l.includes('promovido')) return 16; if(l.includes('exento')) return 4; if(l.includes('monotrib')) return 6; if(l.includes('inscripto')) return 1; return 5; }
 function medioACondVenta(m){ const l=(m||'').toLowerCase(); if(l.includes('transfer')) return 'Transferencia Bancaria'; if(l.includes('efectivo')||l.includes('contado')) return 'Contado'; if(l.includes('tarjeta')) return 'Tarjeta de Débito/Crédito'; if(l.includes('cheque')) return 'Cheque'; if(l.includes('cuenta')) return 'Cuenta Corriente'; return m ? m : 'Contado'; }
 function calcFacturaData(o){
   const a = o.arca||{};
@@ -3799,7 +3803,7 @@ function abrirCliente(id){
   $('cliTitulo').textContent = cliEdit ? 'Ficha de '+(cliEdit.nombre||'cliente') : 'Nuevo cliente';
   $('cliBorrar').hidden = !cliEdit; $('cliNuevaOT').hidden = !cliEdit;
   const c = cliEdit || {};
-  $('cliNombre').value=c.nombre||''; $('cliCelu').value=c.celu||''; $('cliEmail').value=c.email||''; $('cliDir').value=c.dir||''; $('cliNotas').value=c.notas||''; $('cliCuit').value=c.cuit||''; $('cliCondiva').value=c.condiva||'Consumidor Final'; $('cliRazon').value=c.razon||''; $('cliDomFisc').value=c.domFisc||'';
+  $('cliNombre').value=c.nombre||''; $('cliCelu').value=c.celu||''; $('cliEmail').value=c.email||''; $('cliDir').value=c.dir||''; $('cliNotas').value=c.notas||''; $('cliCuit').value=c.cuit||''; $('cliCondiva').value=condIvaLabel(c.condiva||'Consumidor Final'); if($('cliCondiva').selectedIndex<0) $('cliCondiva').value='Consumidor Final'; $('cliRazon').value=c.razon||''; $('cliDomFisc').value=c.domFisc||'';
   $('cliAutos').innerHTML='';
   (c.autos && c.autos.length ? c.autos : [null]).forEach(agregarAuto);
   pintarHistCliente(cliEdit);
