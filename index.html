@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08a desc-manoobra-historial-presu -->
+<!-- build 2026-08-08b turno-calendario-recordatorios -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1308,6 +1308,18 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div class="campo"><label>Vehículo</label><input id="tVeh" placeholder="Nissan Kicks"></div>
       </div>
       <div class="campo"><label>Nota</label><input id="tNota" placeholder="Trae el auto a la mañana, retira a las 18"></div>
+
+      <div class="seccion" style="margin:14px 0 0;padding-top:12px;border-top:1px dashed var(--borde2)">
+        <h4 style="margin-top:0"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Recordatorio en el calendario del cliente</h4>
+        <div class="campo"><label>Mail del cliente <span style="font-weight:500;color:var(--gris2)">(opcional, para enviar la invitación)</span></label><input id="tEmail" type="email" placeholder="cliente@mail.com" autocomplete="off"></div>
+        <div style="font-size:11.5px;color:var(--gris);line-height:1.5;margin:6px 0 9px">Genera un evento con avisos automáticos <b>1 día antes</b> y <b>2 horas antes</b>. El cliente lo agrega a su calendario (Google, Apple, etc.) y su propio teléfono le manda los recordatorios.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" class="btn verde mini" onclick="enviarInvitacionTurno('wpp')">📲 Enviar por WhatsApp</button>
+          <button type="button" class="btn blanco mini" onclick="enviarInvitacionTurno('mail')">✉️ Enviar por mail</button>
+          <button type="button" class="btn blanco mini" onclick="abrirGcalTurno()">📅 Google Calendar</button>
+          <button type="button" class="btn blanco mini" onclick="descargarICSturno()">⬇ Descargar .ics</button>
+        </div>
+      </div>
     </div>
     <div class="foot-modal">
       <button class="btn rojo" id="tBorrar" onclick="borrarTurno()" hidden>Eliminar</button>
@@ -2810,23 +2822,100 @@ function abrirTurno(id, fecha){
   $('tHora').value = t.hora || '09:00';
   $('tDur').value = t.dur || 60;
   $('tCliente').value = t.cliente||''; $('tVeh').value = t.veh||''; $('tNota').value = t.nota||'';
+  if($('tEmail')) $('tEmail').value = t.email||'';
   $('vTurno').classList.add('on');
 }
 function turnoDesdeOT(){
   const o = db.ots.find(x=>x.id===$('tOT').value); if(!o) return;
   $('tCliente').value = o.cliente; $('tVeh').value = o.veh + (o.dominio?' · '+o.dominio:'');
+  if($('tEmail') && !$('tEmail').value && o.email) $('tEmail').value = o.email;
 }
 function guardarTurno(){
   if(!turnoEdit && limiteDemo('turnos','turnos')) return;
   if(!$('tFecha').value) return toast('Falta la fecha.');
   const d = { fecha:$('tFecha').value, hora:$('tHora').value||'09:00', dur:+$('tDur').value||60,
-    otId:$('tOT').value||null, cliente:$('tCliente').value.trim(), veh:$('tVeh').value.trim(), nota:$('tNota').value.trim() };
+    otId:$('tOT').value||null, cliente:$('tCliente').value.trim(), veh:$('tVeh').value.trim(), nota:$('tNota').value.trim(),
+    email:($('tEmail')?$('tEmail').value.trim():'') };
   if(turnoEdit){ Object.assign(turnoEdit, d); } else { d.id=uid(); db.turnos.push(d); }
   diaSel = d.fecha;
   const f = new Date(d.fecha+'T00:00'); mesCal = new Date(f.getFullYear(), f.getMonth(), 1);
   guardar(); render(); cerrar('vTurno'); toast('Turno guardado.');
 }
 function borrarTurno(){ if(turnoEdit && confirm('¿Eliminar el turno?')){ db.turnos=db.turnos.filter(t=>t.id!==turnoEdit.id); guardar(); render(); cerrar('vTurno'); } }
+// ===== Recordatorio en el calendario del cliente (evento .ics con alarmas + Google Calendar) =====
+function socDeTurno(t){ const o=t.otId&&db.ots.find(x=>x.id===t.otId); return (o&&o.soc)||t.soc||'AT'; }
+function turnoDesdeModal(){
+  const otId=$('tOT').value||null;
+  const o=otId&&db.ots.find(x=>x.id===otId);
+  const cliNom=$('tCliente').value.trim();
+  const cli=db.clientes.find(x=>(x.nombre||'').trim().toLowerCase()===cliNom.toLowerCase());
+  const celu=(o&&o.celu)||(cli&&cli.celu)||'';
+  const email=($('tEmail')?$('tEmail').value.trim():'')||(o&&o.email)||(cli&&cli.email)||'';
+  return { id:(turnoEdit?turnoEdit.id:('tmp'+Date.now())), fecha:$('tFecha').value, hora:$('tHora').value||'09:00', dur:+$('tDur').value||60, otId, cliente:cliNom, veh:$('tVeh').value.trim(), nota:$('tNota').value.trim(), email, celu };
+}
+function icsEsc(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function icsLocal(fecha, hora){ const [y,m,d]=(fecha||'').split('-'); const [hh,mm]=(hora||'09:00').split(':'); return y+m+d+'T'+hh+mm+'00'; }
+function icsStampUTC(){ const d=new Date(); return d.getUTCFullYear()+pad2(d.getUTCMonth()+1)+pad2(d.getUTCDate())+'T'+pad2(d.getUTCHours())+pad2(d.getUTCMinutes())+pad2(d.getUTCSeconds())+'Z'; }
+function finTurno(t){ const s=new Date((t.fecha||hoy())+'T'+(t.hora||'09:00')+':00'); const e=new Date(s.getTime()+(+t.dur||60)*60000); return e.getFullYear()+pad2(e.getMonth()+1)+pad2(e.getDate())+'T'+pad2(e.getHours())+pad2(e.getMinutes())+'00'; }
+function icsTurno(t){
+  const cfg=(db.cfg&&db.cfg[socDeTurno(t)])||{};
+  const taller=cfg.rz||'el taller';
+  const titulo='Turno '+(cfg.rz||'Taller')+(t.cliente?' — '+t.cliente:'');
+  const desc=[ t.veh?('Vehículo: '+t.veh):'', t.nota?('Nota: '+t.nota):'', 'Turno en '+taller+(cfg.tel?(' · Tel. '+cfg.tel):'') ].filter(Boolean).join('\n');
+  const loc=[cfg.dir||'', cfg.rz||''].filter(Boolean).join(' · ');
+  const lines=[
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Taller OS//Turnos//ES','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    'UID:'+(t.id||uid())+'@taller-os',
+    'DTSTAMP:'+icsStampUTC(),
+    'DTSTART:'+icsLocal(t.fecha,t.hora),
+    'DTEND:'+finTurno(t),
+    'SUMMARY:'+icsEsc(titulo),
+    'DESCRIPTION:'+icsEsc(desc),
+    loc?('LOCATION:'+icsEsc(loc)):'',
+    'STATUS:CONFIRMED',
+    'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc('Recordatorio: mañana tenés turno en '+taller),'TRIGGER:-P1D','END:VALARM',
+    'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc('Recordatorio: turno en 2 horas en '+taller),'TRIGGER:-PT2H','END:VALARM',
+    'END:VEVENT','END:VCALENDAR'
+  ].filter(Boolean);
+  return lines.map(icsFold).join('\r\n');
+}
+function icsFold(line){ if(line.length<=73) return line; let out='', s=line; while(s.length>73){ out+=s.slice(0,73)+'\r\n '; s=s.slice(73); } return out+s; }
+function gcalLinkTurno(t){
+  const cfg=(db.cfg&&db.cfg[socDeTurno(t)])||{};
+  const titulo='Turno '+(cfg.rz||'Taller')+(t.cliente?' — '+t.cliente:'');
+  const det=[ t.veh?('Vehículo: '+t.veh):'', t.nota||'', 'Turno en '+(cfg.rz||'el taller') ].filter(Boolean).join('\n');
+  const dates=icsLocal(t.fecha,t.hora)+'/'+finTurno(t);
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(titulo)+'&dates='+dates+'&details='+encodeURIComponent(det)+'&location='+encodeURIComponent(cfg.dir||'');
+}
+function icsBlobTurno(t){ return new Blob([icsTurno(t)], {type:'text/calendar;charset=utf-8'}); }
+function nombreICS(t){ return 'Turno-'+((t.fecha||'').replace(/-/g,''))+((t.hora||'').replace(':',''))+'.ics'; }
+async function enviarInvitacionTurno(via){
+  const t=turnoDesdeModal();
+  if(!t.fecha) return toast('Cargá la fecha del turno primero.');
+  const cfg=(db.cfg&&db.cfg[socDeTurno(t)])||{};
+  const blob=icsBlobTurno(t); const nombre=nombreICS(t);
+  const texto='¡Hola'+(t.cliente?' '+t.cliente:'')+'! Te paso el recordatorio de tu turno en '+(cfg.rz||'el taller')+' para el '+fFecha(t.fecha)+' a las '+t.hora+(t.veh?(' ('+t.veh+')'):'')+'. Agregá el evento adjunto a tu calendario y tu teléfono te va a avisar solo. ¡Gracias!';
+  // En celular: compartir el archivo directo (aparece WhatsApp/Mail en el menú)
+  if(puedeCompartirArchivos && puedeCompartirArchivos()){
+    try{ await navigator.share({ files:[new File([blob], nombre, {type:'text/calendar'})], text:texto, title:'Turno' }); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  // Plan B (compu): descargo el .ics y abro WhatsApp Web / Gmail para adjuntarlo
+  descargarBlob(blob, nombre);
+  if(via==='mail'){
+    const asunto='Turno '+fFecha(t.fecha)+' — '+(cfg.rz||'Taller');
+    window.open('https://mail.google.com/mail/?view=cm&fs=1&tf=1&to='+encodeURIComponent(t.email||'')+'&su='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(texto), 'taller_gmail');
+    toast('Se descargó el archivo del turno (.ics). Adjuntalo en el borrador de Gmail.');
+  } else {
+    const tel=telWhats(t.celu);
+    window.open(tel?('https://web.whatsapp.com/send?phone='+tel+'&text='+encodeURIComponent(texto)):'https://web.whatsapp.com/', 'taller_whatsapp');
+    toast(tel?'Se descargó el archivo del turno (.ics). Arrastralo al chat de WhatsApp.':'Se descargó el .ics. Elegí el contacto y adjuntalo en WhatsApp.');
+  }
+}
+function abrirGcalTurno(){ const t=turnoDesdeModal(); if(!t.fecha) return toast('Cargá la fecha del turno primero.'); window.open(gcalLinkTurno(t), '_blank'); }
+function descargarICSturno(){ const t=turnoDesdeModal(); if(!t.fecha) return toast('Cargá la fecha del turno primero.'); descargarBlob(icsBlobTurno(t), nombreICS(t)); toast('Evento .ics descargado.'); }
 
 /* ================= LIBRO CONTABLE ================= */
 let socConta = '', contaMedio = '';
