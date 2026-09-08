@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08e facturar-sin-cobrar -->
+<!-- build 2026-08-08f refacturar-tras-nc -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2637,8 +2637,9 @@ function renderFact(){
     const pdfBtn = (o || f.arcaData) ? '<button class="btn fantasma mini" onclick="pdfFactura(\''+(f.id||'')+'\',\''+f.ot+'\')">PDF</button>' : '';
     const ncBtn = (f.arcaData && !f.esNC && /Factura/i.test(f.tipo||'')) ? ' <button class="btn fantasma mini" style="color:#b4232a" onclick="abrirNC(\''+(f.id||'')+'\')">NC</button>' : '';
     const edBtn = f.id ? ' <button class="btn blanco mini" onclick="editarFactura(\''+f.id+'\')">Editar</button>' : '';
+    const reBtn = (f.esNC && o) ? ' <button class="btn mini" onclick="refacturar(\''+o.id+'\')" title="Emitir una nueva factura de esta orden">↻ Re-facturar</button>' : '';
     return '<tr><td>'+fFecha(f.f)+'</td><td class="num" style="text-align:left">'+f.ot+'</td><td>'+esc(f.cliente)+'</td><td>'+esc(f.tipo)+(f.nro?' · <span style="font-family:var(--mono);font-size:12px">'+esc(f.nro)+'</span>':'')+'</td>'+
-    '<td><span class="chip sin" style="color:'+(f.arca?'#1c4fd6;background:#e7edfd':'#5b6472;background:#eceef2')+'">'+(f.arca?'ARCA ✓':'Sin ARCA')+'</span></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right">'+pdfBtn+ncBtn+edBtn+cerrarBtn+'</td></tr>';
+    '<td><span class="chip sin" style="color:'+(f.arca?'#1c4fd6;background:#e7edfd':'#5b6472;background:#eceef2')+'">'+(f.arca?'ARCA ✓':'Sin ARCA')+'</span></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right">'+pdfBtn+ncBtn+edBtn+reBtn+cerrarBtn+'</td></tr>';
   }).join('') : '<tr><td colspan="7" class="vacio">'+((d0||d1)?'Sin comprobantes en el período elegido.':'Todavía no se emitieron facturas.')+'</td></tr>';
 }
 function rangoLapso(v){
@@ -2814,6 +2815,13 @@ async function confirmarFactura(){
   if(arcaData){ setTimeout(()=>verPDF(factOT, 'cliente'), 300); }
 }
 function terminarOT(id){ const o=db.ots.find(x=>x.id===id); o.estado='Terminado'; guardar(); render(); toast('Orden '+o.numero+' terminada.'); }
+// Volver a facturar una orden tras una Nota de Crédito (evita tener que ir a ARCA a mano)
+function refacturar(id){
+  const o=db.ots.find(x=>x.id===id);
+  if(!o) return toast('No encontré la orden de esta nota de crédito.');
+  if(!confirm('¿Emitir una nueva factura de la orden '+o.numero+'?\n\nUsalo cuando anulaste la factura anterior con una Nota de Crédito y necesitás volver a facturar desde el sistema.')) return;
+  abrirFacturar(id);
+}
 
 /* ================= TURNOS ================= */
 let mesCal = new Date(); mesCal.setDate(1);
