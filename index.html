@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08d logo-terra-nuevo -->
+<!-- build 2026-08-08e facturar-sin-cobrar -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1066,12 +1066,13 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <input type="checkbox" id="fArca">
         <span><b>Facturar automáticamente en ARCA</b><small>Queda registrado para la integración con la API de ARCA. Si no lo marcás, se cierra sin factura electrónica.</small></span>
       </label>
-      <label class="check" style="cursor:pointer">
+      <div id="fCerrarBox"><label class="check" style="cursor:pointer">
         <input type="checkbox" id="fCerrar" checked>
         <span><b>Marcar la orden como Terminada</b><small>Destildá si querés dejarla en estado Facturado para revisarla antes de cerrar.</small></span>
-      </label>
+      </label></div>
+      <div id="fImpagaNote" hidden style="background:#fdf1d7;border:1px solid #f0d89a;border-radius:9px;padding:10px 12px;font-size:12px;color:#8a6d1e;line-height:1.5"><b>El cliente todavía no pagó.</b> Se emite la factura pero la orden queda <b>pendiente de cobro</b> — no se suma al libro contable como ingreso hasta que registres el pago.</div>
     </div>
-    <div class="foot-modal"><div class="der"><button class="btn" onclick="confirmarFactura()">Facturar</button></div></div>
+    <div class="foot-modal"><div class="der"><button class="btn" id="fBtnFacturar" onclick="confirmarFactura()">Facturar</button></div></div>
   </div>
 </div>
 
@@ -2604,10 +2605,13 @@ function renderFact(){
   $('resPendPago').innerHTML = pendPago.length ? '<b>'+money(totPP)+'</b><span>'+pendPago.length+(pendPago.length!==1?' órdenes':' orden')+'</span>' : '<span>Sin pendientes</span>';
   $('tbPendPago').innerHTML = pendPago.length ? pendPago.map(o=>{
     const t=totalesOT(o);
+    const facturarBtn = o.facturada
+      ? '<span class="chip sin" style="color:#136e4e;background:#d7efe3;margin-right:6px">Facturada ✓</span>'
+      : '<button class="btn blanco mini" onclick="abrirFacturar(\''+o.id+'\')">Facturar</button> ';
     return '<tr><td class="num" style="text-align:left;width:80px">'+o.numero+'</td>'+
     '<td><div class="persona"><div class="avatar">'+inic(o.cliente)+'</div><div>'+esc(o.cliente)+'<small>'+esc(o.veh||'')+' · '+(o.dominio||'—')+' · '+socNombre[o.soc]+'</small></div></div></td>'+
     '<td class="num">'+money(t.venta)+'</td>'+
-    '<td style="text-align:right;width:140px"><button class="btn verde mini" onclick="abrirPago(\''+o.id+'\')">Registrar pago</button></td></tr>';
+    '<td style="text-align:right;width:230px;white-space:nowrap">'+facturarBtn+'<button class="btn verde mini" onclick="abrirPago(\''+o.id+'\')">Registrar pago</button></td></tr>';
   }).join('') : '<tr><td colspan="4" class="vacio">No hay órdenes entregadas sin pago.<br><small style="font-weight:500">Pasá una orden a Entregado para que aparezca acá.</small></td></tr>';
 
   const totPF = pendFact.reduce((a,o)=>{ const pg=[...db.pagos].reverse().find(p=>p.ot===o.numero)||{}; return a+(pg.monto||totalesOT(o).venta); },0);
@@ -2681,9 +2685,11 @@ function confirmarPago(){
     const egr = Math.min(p.stock, it.cant);
     if(egr>0){ p.stock -= egr; db.movs.push({ id:uid(), f:hoy(), tipo:'Egreso', sku:p.sku, prod:p.prod, cant:egr, ref:'Venta '+pagoOT.numero }); }
   });
-  pagoOT.estado = 'Pagado'; pagoOT.fechaPago = hoy();
+  pagoOT.fechaPago = hoy();
+  pagoOT.estado = pagoOT.facturada ? 'Facturado' : 'Pagado'; // si ya se había facturado, no vuelve a «pendiente de facturar»
   db.pagos.push({ id:uid(), f:hoy(), ot:pagoOT.numero, cliente:pagoOT.cliente, medio:$('cMedio').value, monto:+$('cMonto').value||0 });
-  guardar(); render(); cerrar('vPago'); toast('Pago registrado. Ahora podés facturar la orden.');
+  guardar(); render(); cerrar('vPago');
+  toast(pagoOT.facturada ? 'Pago registrado. La orden ya estaba facturada; podés terminarla desde el historial.' : 'Pago registrado. Ahora podés facturar la orden.');
 }
 function construirLineasFactura(factOT, ivaDefE){
   const tSnap=totalesOT(factOT);
@@ -2722,8 +2728,12 @@ function construirLineasFactura(factOT, ivaDefE){
 function abrirFacturar(id){
   factOT = db.ots.find(o=>o.id===id);
   const pago = [...db.pagos].reverse().find(p=>p.ot===factOT.numero) || {};
+  const impaga = !db.pagos.some(p=>p.ot===factOT.numero); // se factura antes de cobrar
   $('factInfo').innerHTML = '<b>'+factOT.numero+'</b> · '+esc(factOT.cliente)+' · '+money(pago.monto||totalesOT(factOT).venta);
-  $('fArca').checked = false; $('fCerrar').checked = true; $('fNro').value='';
+  if($('fCerrarBox')) $('fCerrarBox').hidden = impaga;
+  if($('fImpagaNote')) $('fImpagaNote').hidden = !impaga;
+  if($('fBtnFacturar')) $('fBtnFacturar').textContent = impaga ? 'Facturar (pendiente de cobro)' : 'Facturar';
+  $('fArca').checked = false; $('fCerrar').checked = !impaga; $('fNro').value='';
   if($('fRepModo')) $('fRepModo').value='simple';
   if($('fMOdet')) $('fMOdet').checked=false;
   if($('fDescFactura')) $('fDescFactura').value='';
@@ -2790,10 +2800,17 @@ async function confirmarFactura(){
     factOT.arca = arca; // para el PDF del cliente
   }
   db.facturas.push(fRec);
-  factOT.estado = $('fCerrar').checked ? 'Terminado' : 'Facturado';
+  const impaga = !db.pagos.some(p=>p.ot===factOT.numero); // se facturó antes de cobrar
   factOT.fechaFactura = hoy();
+  if(impaga){
+    factOT.facturada = true; // sigue en estado Entregado → queda en «Pendiente de cobro», sin ingreso en el libro
+  } else {
+    factOT.estado = $('fCerrar').checked ? 'Terminado' : 'Facturado';
+  }
   guardar(); render(); cerrar('vFacturar');
-  toast(arcaData ? ('✓ Factura ARCA emitida — CAE '+arcaData.cae) : ('Facturada sin ARCA. Orden '+($('fCerrar').checked?'terminada.':'en estado Facturado.')));
+  toast(impaga
+    ? (arcaData ? ('✓ Factura ARCA emitida — CAE '+arcaData.cae+'. Queda pendiente de cobro.') : ('Factura emitida. La orden queda pendiente de cobro.'))
+    : (arcaData ? ('✓ Factura ARCA emitida — CAE '+arcaData.cae) : ('Facturada sin ARCA. Orden '+($('fCerrar').checked?'terminada.':'en estado Facturado.'))));
   if(arcaData){ setTimeout(()=>verPDF(factOT, 'cliente'), 300); }
 }
 function terminarOT(id){ const o=db.ots.find(x=>x.id===id); o.estado='Terminado'; guardar(); render(); toast('Orden '+o.numero+' terminada.'); }
