@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08f refacturar-tras-nc -->
+<!-- build 2026-08-08h gwm-sin-subtitulo -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -386,6 +386,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
     <button data-tab="proveedores" onclick="irTab('proveedores')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Proveedores</span></button>
     <button data-tab="inventario" onclick="irTab('inventario')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 8.7L12 13l8.7-4.3M12 22V13"/></svg><span>Inventario</span></button>
     <button data-tab="facturacion" onclick="irTab('facturacion')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span>Facturación</span><span class="bd" id="bdFact">0</span></button>
+    <button data-tab="gwm" onclick="irTab('gwm')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l1.5-4.5A2 2 0 0 1 8.4 7h7.2a2 2 0 0 1 1.9 1.5L19 13"/><path d="M4 13h16v4a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H7v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><circle cx="7.5" cy="15.5" r="0.5"/><circle cx="16.5" cy="15.5" r="0.5"/></svg><span>GWM</span></button>
     <button data-tab="contable" onclick="irTab('contable')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span>Libro contable</span></button>
     <button data-tab="configuracion" onclick="irTab('configuracion')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Configuración</span></button>
   </nav>
@@ -569,6 +570,52 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 
 
 <!-- ================= TURNOS ================= -->
+<section id="tab-gwm" hidden>
+  <div class="cab">
+    <div><h1>GWM · Facturación en tanda</h1></div>
+  </div>
+
+  <div class="panelbox" style="margin-bottom:16px">
+    <div class="cab-box"><h3>Nueva factura en tanda</h3><div id="gwTotBox" style="font-family:var(--mono);font-weight:800"></div></div>
+    <div style="padding:14px 16px">
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="campo" style="margin:0"><label>Sociedad</label><select id="gwSoc" onchange="gwRenderTandas()"><option value="TQ">Terra Quattro SRL</option><option value="AT">All Terrain SRL</option></select></div>
+        <div class="campo" style="margin:0;position:relative"><label>Cliente</label><input id="gwCliente" autocomplete="off" oninput="gwFiltrarCli()" onfocus="gwFiltrarCli()" onblur="gwCliDropHide()" placeholder="Buscá un cliente registrado…"><input type="hidden" id="gwCliId"><div id="gwCliDrop" class="combo-drop" hidden></div><small id="gwCliHint" style="display:block;color:var(--gris2);font-size:10.5px;margin-top:4px"></small></div>
+        <div class="campo" style="margin:0"><label>Tipo de comprobante</label><select id="gwTipo"><option>Factura A</option><option>Factura B</option><option>Factura C</option></select></div>
+      </div>
+      <div class="seccion" style="margin:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h4 style="margin:0">Renglones (un auto por renglón)</h4><button class="btn blanco mini" onclick="gwAddLinea()">+ Agregar renglón</button></div>
+        <div class="gwrow" style="display:grid;grid-template-columns:1.2fr 1fr 150px 2fr 130px 28px;gap:6px;font-size:10px;font-weight:800;color:var(--gris2);text-transform:uppercase;letter-spacing:.03em;padding:0 2px 4px"><div>N° de chasis</div><div>Modelo</div><div>Plantilla</div><div>Servicio / detalle</div><div>Precio (c/IVA)</div><div></div></div>
+        <div id="gwLineas"></div>
+      </div>
+      <div style="font-size:11px;color:var(--gris);margin-top:10px;line-height:1.5">El renglón sale como <b>«chasis · modelo · servicio»</b>. El precio es el <b>final con IVA</b> (como lo cobrás); el neto y el IVA se calculan solos. Para Factura A el cliente tiene que tener CUIT.</div>
+    </div>
+    <div class="foot-modal" style="border-top:1px solid var(--borde)">
+      <div class="der"><button class="btn verde" onclick="gwEmitir()">Emitir Factura ARCA</button></div>
+    </div>
+  </div>
+
+  <div class="grid2" style="gap:16px;align-items:start">
+    <div class="panelbox">
+      <div class="cab-box"><h3>Plantillas de servicios</h3></div>
+      <div style="padding:14px 16px">
+        <div style="display:grid;grid-template-columns:1fr 130px;gap:8px">
+          <div class="campo" style="margin:0"><label>Nombre</label><input id="gwPlNombre" placeholder="Service 10.000 – H6"></div>
+          <div class="campo" style="margin:0"><label>Precio (c/IVA)</label><input id="gwPlPrecio" type="number" min="0" placeholder="0"></div>
+        </div>
+        <div class="campo" style="margin:8px 0 0"><label>Texto que va en la factura</label><input id="gwPlTexto" placeholder="SERVICIO DE INSPECCION PRE ENTREGA E INSUMOS."></div>
+        <input type="hidden" id="gwPlId">
+        <button class="btn blanco mini" style="margin-top:10px" onclick="gwGuardarPlantilla()">Guardar plantilla</button>
+        <div id="gwPlLista" style="margin-top:12px"></div>
+      </div>
+    </div>
+    <div class="panelbox">
+      <div class="cab-box"><h3>Últimas tandas emitidas</h3></div>
+      <div style="padding:6px 4px"><div class="scrollx"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Comprob.</th><th class="num">Total</th><th></th></tr></thead><tbody id="gwTandas"></tbody></table></div></div>
+    </div>
+  </div>
+</section>
+
 <section id="tab-turnos" hidden>
   <div class="cab">
     <div><h1>Turnero</h1><p>Organizá el día, la semana y el mes del taller. Cada turno se puede vincular a una orden de trabajo.</p></div>
@@ -1392,7 +1439,7 @@ if(!db){
    tiempo (_m) y al recibir cambios remotos se fusiona por id: gana el más nuevo de
    CADA registro, así dos compus editando órdenes distintas ya no se pisan.
    Las bajas se registran como tumbas (_tomb: id->timestamp). */
-const SYNC_COLS=['ots','clientes','provs','proveedores','inv','tareas','turnos','conta','pagos','facturas','preentregas','provPagos','movs'];
+const SYNC_COLS=['ots','clientes','provs','proveedores','inv','tareas','turnos','conta','pagos','facturas','preentregas','provPagos','movs','gwmPlantillas'];
 let _syncSnap=null, _applyingRemote=false;
 function _hashStr(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h*33)^s.charCodeAt(i))>>>0; } return h.toString(36); }
 function _stripVol(r){ const c={}; for(const k in r){ if(k==='_m'||k==='adj'||k==='_adjLocal') continue; c[k]=r[k]; } return c; }
@@ -1437,7 +1484,7 @@ function sigDB(d){ const parts=[]; SYNC_COLS.forEach(col=>{ const ids=(d[col]||[
 function normalizarDB(){
   db.ots=db.ots||[]; db.provs=db.provs||[]; db.inv=db.inv||[]; db.movs=db.movs||[];
   db.pagos=db.pagos||[]; db.facturas=db.facturas||[]; db.turnos=db.turnos||[]; db.conta=db.conta||[]; db.proveedores=db.proveedores||[]; db.preentregas=db.preentregas||[];
-  db.clientes=db.clientes||[]; db.tareas=db.tareas||[]; db.provPagos=db.provPagos||[];
+  db.clientes=db.clientes||[]; db.tareas=db.tareas||[]; db.provPagos=db.provPagos||[]; db.gwmPlantillas=db.gwmPlantillas||[];
   db.preentregas.forEach(pe=>{ if(pe.fFact===undefined) pe.fFact = pe.f||''; });
   db.cfg=db.cfg||{}; db.cfg.AT=db.cfg.AT||{rz:'ALL TERRAIN SRL',sub:'4X4 SERVICE · EST. 1991',cuit:'',dir:'',tel:'',mail:''};
   db.cfg.TQ=db.cfg.TQ||{rz:'TERRA QUATTRO SRL',sub:'GWM',cuit:'',dir:'',tel:'',mail:''};
@@ -1568,6 +1615,7 @@ function irTab(t){
   document.querySelectorAll('main > section').forEach(s=>s.hidden = s.id !== 'tab-'+t);
   document.querySelectorAll('aside nav button').forEach(b=>b.classList.toggle('act', b.dataset.tab===t));
   if(t==='configuracion') renderConfig();
+  if(t==='gwm') renderGWM();
   render();
 }
 function renderConfig(){
@@ -2821,6 +2869,149 @@ function refacturar(id){
   if(!o) return toast('No encontré la orden de esta nota de crédito.');
   if(!confirm('¿Emitir una nueva factura de la orden '+o.numero+'?\n\nUsalo cuando anulaste la factura anterior con una Nota de Crédito y necesitás volver a facturar desde el sistema.')) return;
   abrirFacturar(id);
+}
+
+/* ============ GWM · Facturación en tanda (pre-entregas y services) ============ */
+function renderGWM(){
+  if(!$('gwLineas')) return;
+  if($('gwLineas').children.length===0) gwAddLinea();
+  gwRenderPlantillas();
+  gwRenderTandas();
+  gwCalcTotal();
+  gwPintarCliHint();
+}
+function gwPlantOptions(sel){
+  const ps=(db.gwmPlantillas||[]);
+  return '<option value="">— plantilla —</option>'+ps.map(p=>'<option value="'+p.id+'"'+(sel===p.id?' selected':'')+'>'+esc(p.nombre)+'</option>').join('');
+}
+function gwAddLinea(data){
+  data=data||{};
+  const d=document.createElement('div');
+  d.className='gwrow';
+  d.style.cssText='display:grid;grid-template-columns:1.2fr 1fr 150px 2fr 130px 28px;gap:6px;margin-bottom:6px;align-items:center';
+  d.innerHTML=
+    '<input class="gw-chasis" placeholder="LGW…" value="'+esc(data.chasis||'')+'" style="text-transform:uppercase">'+
+    '<input class="gw-modelo" placeholder="H6" value="'+esc(data.modelo||'')+'">'+
+    '<select class="gw-plant" onchange="gwAplicarPlant(this)">'+gwPlantOptions()+'</select>'+
+    '<input class="gw-serv" placeholder="SERVICIO DE INSPECCION…" value="'+esc(data.serv||'')+'">'+
+    '<input class="gw-precio" type="number" min="0" placeholder="0" value="'+(data.precio!=null&&data.precio!==''?data.precio:'')+'" oninput="gwCalcTotal()">'+
+    '<button class="btn rojo mini" onclick="gwDelLinea(this)" title="Quitar" style="font-weight:700">×</button>';
+  $('gwLineas').appendChild(d);
+  gwCalcTotal();
+}
+function gwDelLinea(btn){ const r=btn.closest('.gwrow'); if(r) r.remove(); if($('gwLineas').children.length===0) gwAddLinea(); gwCalcTotal(); }
+function gwAplicarPlant(sel){
+  const p=(db.gwmPlantillas||[]).find(x=>x.id===sel.value); if(!p) return;
+  const row=sel.closest('.gwrow');
+  if(p.texto) row.querySelector('.gw-serv').value=p.texto;
+  if(p.precio) row.querySelector('.gw-precio').value=p.precio;
+  gwCalcTotal();
+}
+function gwLeerLineas(){
+  return [...$('gwLineas').querySelectorAll('.gwrow')].map(r=>{
+    const chasis=(r.querySelector('.gw-chasis').value||'').trim().toUpperCase();
+    const modelo=(r.querySelector('.gw-modelo').value||'').trim();
+    const serv=(r.querySelector('.gw-serv').value||'').trim();
+    const precio=+r.querySelector('.gw-precio').value||0;
+    const desc=[chasis,modelo,serv].filter(Boolean).join(' ');
+    return { chasis, modelo, serv, precio, desc };
+  }).filter(l=>l.desc && l.precio>0);
+}
+function gwCalcTotal(){
+  if(!$('gwLineas')) return;
+  const tot=[...$('gwLineas').querySelectorAll('.gw-precio')].reduce((a,el)=>a+(+el.value||0),0);
+  const n=$('gwLineas').querySelectorAll('.gwrow').length;
+  if($('gwTotBox')) $('gwTotBox').innerHTML='Total: '+money(tot)+' <span style="color:var(--gris2);font-weight:500;font-size:11px">· '+n+' renglón'+(n!==1?'es':'')+'</span>';
+}
+function gwGuardarPlantilla(){
+  const nombre=$('gwPlNombre').value.trim(), texto=$('gwPlTexto').value.trim(), precio=+$('gwPlPrecio').value||0;
+  if(!nombre) return toast('Ponele un nombre a la plantilla.');
+  db.gwmPlantillas=db.gwmPlantillas||[];
+  const id=$('gwPlId').value;
+  if(id){ const x=db.gwmPlantillas.find(p=>p.id===id); if(x){ x.nombre=nombre; x.texto=texto; x.precio=precio; } }
+  else { db.gwmPlantillas.push({ id:uid(), nombre, texto, precio }); }
+  $('gwPlId').value=''; $('gwPlNombre').value=''; $('gwPlTexto').value=''; $('gwPlPrecio').value='';
+  guardar(); gwRenderPlantillas(); gwRefrescarPlantSelects(); toast('Plantilla guardada.');
+}
+function gwEditarPlantilla(id){ const p=(db.gwmPlantillas||[]).find(x=>x.id===id); if(!p) return; $('gwPlId').value=p.id; $('gwPlNombre').value=p.nombre||''; $('gwPlTexto').value=p.texto||''; $('gwPlPrecio').value=p.precio||''; try{$('gwPlNombre').scrollIntoView({behavior:'smooth',block:'center'});}catch(e){} }
+function gwBorrarPlantilla(id){ if(!confirm('¿Borrar esta plantilla?')) return; db.gwmPlantillas=(db.gwmPlantillas||[]).filter(x=>x.id!==id); guardar(); gwRenderPlantillas(); gwRefrescarPlantSelects(); }
+function gwRenderPlantillas(){
+  const box=$('gwPlLista'); if(!box) return;
+  const l=(db.gwmPlantillas||[]);
+  box.innerHTML = l.length ? l.map(p=>'<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--borde)"><div style="flex:1;min-width:0"><b style="font-size:13px">'+esc(p.nombre)+'</b><small style="display:block;color:var(--gris2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.texto||'')+(p.precio?(' · '+money(p.precio)):'')+'</small></div><button class="btn blanco mini" onclick="gwEditarPlantilla(\''+p.id+'\')">Editar</button> <button class="btn rojo mini" onclick="gwBorrarPlantilla(\''+p.id+'\')">×</button></div>').join('') : '<div class="vacio" style="padding:14px 0;color:var(--gris2);font-size:12px">Todavía no cargaste plantillas. Ej: nombre «Pre-entrega», texto «SERVICIO DE INSPECCION PRE ENTREGA E INSUMOS.», con su precio.</div>';
+}
+function gwRefrescarPlantSelects(){ [...document.querySelectorAll('.gw-plant')].forEach(s=>{ const v=s.value; s.innerHTML=gwPlantOptions(v); }); }
+function gwFiltrarCli(){
+  const d=$('gwCliDrop'); if(!d) return;
+  const l=clientesFiltrados($('gwCliente').value);
+  d.innerHTML = l.length ? l.map(c=>'<div class="op" onmousedown="event.preventDefault()" onclick="gwElegirCli(\''+c.id+'\')"><div class="avatar">'+inic(c.nombre)+'</div><div style="flex:1;min-width:0"><b>'+esc(c.nombre)+'</b><small>'+(c.cuit?('CUIT '+esc(c.cuit)):'sin CUIT')+' · '+esc(condIvaLabel(c.condiva||'Consumidor Final'))+'</small></div></div>').join('') : '<div class="vacio2">Sin coincidencias. Cargá el cliente en la solapa Clientes.</div>';
+  d.hidden=false;
+}
+function gwCliDropHide(){ setTimeout(()=>{ if($('gwCliDrop')) $('gwCliDrop').hidden=true; }, 180); }
+function gwElegirCli(id){ const c=db.clientes.find(x=>x.id===id); if(!c) return; $('gwCliId').value=c.id; $('gwCliente').value=c.nombre||''; if($('gwCliDrop')) $('gwCliDrop').hidden=true; gwPintarCliHint(); }
+function gwPintarCliHint(){
+  const h=$('gwCliHint'); if(!h) return;
+  const c=$('gwCliId').value&&db.clientes.find(x=>x.id===$('gwCliId').value);
+  if(!c){ h.textContent=''; return; }
+  h.innerHTML=(c.cuit?('CUIT '+esc(c.cuit)):'<span style="color:var(--rojo);font-weight:700">sin CUIT — no permite Factura A</span>')+' · '+esc(condIvaLabel(c.condiva||'Consumidor Final'));
+}
+async function gwEmitir(){
+  const soc=$('gwSoc').value;
+  const a=arcaCfgSoc(soc);
+  if(!a.on || !a.workerUrl) return toast('La sociedad '+(socNombre[soc]||soc)+' no tiene ARCA configurado (Configuración → Facturación ARCA).');
+  if(!a.ptoVta) return toast('Falta el punto de venta de '+(socNombre[soc]||soc)+' en Configuración.');
+  const cl=$('gwCliId').value&&db.clientes.find(x=>x.id===$('gwCliId').value);
+  if(!cl) return toast('Elegí un cliente registrado (para que la factura salga con su CUIT).');
+  const tipo=$('gwTipo').value;
+  const lineas=gwLeerLineas();
+  if(!lineas.length) return toast('Cargá al menos un renglón con detalle y precio.');
+  const docRaw=String(cl.cuit||'').replace(/\D/g,'');
+  if(tipo==='Factura A' && docRaw.length!==11) return toast('Para Factura A el cliente necesita CUIT. Cargalo en Clientes o elegí Factura B.');
+  const ivaDef=(db.cfg.ivaDef!==undefined?db.cfg.ivaDef:21);
+  const receptor={ condicionIVA:(cl.condiva||'Consumidor Final') };
+  receptor.condicionIVAId=condIvaId(receptor.condicionIVA);
+  if(tipo==='Factura A') receptor.forzarFacturaA=true;
+  if(docRaw.length===11) receptor.cuit=docRaw; else if(docRaw.length>=7) receptor.dni=docRaw;
+  const items=lineas.map(l=>({ precio:l.precio, cant:1, iva:ivaDef }));
+  const total=items.reduce((s,i)=>s+i.precio*i.cant,0);
+  const n=lineas.length;
+  if(!confirm('¿Emitir factura en ARCA?\n\n'+(socNombre[soc]||soc)+' → '+(cl.razon||cl.nombre)+'\n'+n+' renglón'+(n!==1?'es':'')+' · Total '+money(total)+'\n\nEs un comprobante fiscal real.')) return;
+  const btn=document.querySelector('#tab-gwm .foot-modal .btn'); if(btn){ btn.disabled=true; btn.textContent='Emitiendo…'; }
+  toast('Emitiendo comprobante en ARCA…');
+  const hh=hoy().replace(/-/g,'');
+  const otId=soc+'-PE-'+Date.now().toString(36);
+  const body={ ptoVta:+a.ptoVta, receptor, items, total, ticket:otId, ventaId:otId, concepto:3, fchServDesde:hh, fchServHasta:hh, fchVtoPago:hh };
+  let data;
+  try{ data=await llamarWorker(soc, body); }
+  catch(e){ if(btn){ btn.disabled=false; btn.textContent='Emitir Factura ARCA'; } const m=(e&&e.message)||''; return toast(/token|sign|venci|expir/i.test(m)?'No se pudo facturar: la conexión con ARCA se venció, probá en unos minutos.':'No se pudo facturar: '+m, 9000); }
+  if(btn){ btn.disabled=false; btn.textContent='Emitir Factura ARCA'; }
+  const receptorSnap={ nombre:(cl.razon||cl.nombre)||'', cuit:cl.cuit||'', condiva:cl.condiva||'Consumidor Final', dom:(cl.domFisc||cl.dir)||'' };
+  const lineasSnap=lineas.map(l=>({ desc:l.desc, cant:1, unidad:'unidades', precio:l.precio, iva:ivaDef }));
+  const arca={ cae:data.cae, caeVto:data.caeVto, cbteTipo:data.cbteTipo, ptoVta:data.ptoVta, nro:data.nro, qrUrl:data.qrUrl, impNeto:data.impNeto, impIVA:data.impIVA, ivaArr:data.ivaArr||[], total:total, fecha:hoy(), receptor:receptorSnap, condVenta:'Contado', lineas:lineasSnap, soc:soc, periodo:{desde:hoy(),hasta:hoy(),vto:hoy()} };
+  const fRec={ id:uid(), f:hoy(), ot:otId, cliente:receptorSnap.nombre, tipo:CBTE_LABEL[data.cbteTipo]||tipo, nro:String(data.ptoVta).padStart(4,'0')+'-'+String(data.nro).padStart(8,'0'), arca:true, esNC:false, soc:soc, monto:total, arcaData:arca, tanda:true };
+  db.facturas.push(fRec);
+  guardar(); render();
+  $('gwLineas').innerHTML=''; gwAddLinea(); $('gwCliId').value=''; $('gwCliente').value=''; gwPintarCliHint(); gwRenderTandas(); gwCalcTotal();
+  toast('✓ Factura ARCA emitida — CAE '+data.cae);
+  const oSynth={ soc, numero:otId, fecha:arca.fecha, cliente:receptorSnap.nombre, items:[], moPrecio:0, repVenta:'', arca };
+  setTimeout(()=>verPDF(oSynth,'cliente'), 300);
+}
+function gwRenderTandas(){
+  const tb=$('gwTandas'); if(!tb) return;
+  const soc=$('gwSoc')?$('gwSoc').value:'';
+  const l=(db.facturas||[]).filter(f=>f.tanda && (!soc || f.soc===soc)).sort((a,b)=>(b.f||'').localeCompare(a.f||'')).slice(0,15);
+  tb.innerHTML = l.length ? l.map(f=>{
+    const cobr = f.cobrado ? '<span class="chip sin" style="color:#136e4e;background:#d7efe3">Cobrada</span>' : '<button class="btn blanco mini" onclick="gwCobrar(\''+f.id+'\')">✓ Cobrar</button>';
+    return '<tr><td>'+fFecha(f.f)+'</td><td>'+esc(f.cliente||'—')+'</td><td style="font-size:12px">'+esc(f.tipo||'')+'<small style="display:block;color:var(--gris2)">'+esc(f.nro||'')+'</small></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right"><button class="btn fantasma mini" onclick="pdfFactura(\''+f.id+'\',\''+f.ot+'\')">PDF</button> '+cobr+'</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="vacio">Todavía no emitiste facturas en tanda para esta sociedad.</td></tr>';
+}
+function gwCobrar(fid){
+  const f=(db.facturas||[]).find(x=>x.id===fid); if(!f || f.cobrado) return;
+  pedirMedio('Cobro de '+(f.tipo||'factura')+' '+(f.nro||'')+' · '+(f.cliente||''), (m)=>{
+    f.cobrado=true; f.fcobro=hoy(); f.medioCobro=m;
+    db.pagos.push({ id:uid(), f:hoy(), ot:f.ot, cliente:f.cliente||'', medio:m, monto:f.monto||0 });
+    guardar(); render(); gwRenderTandas(); toast('Cobro registrado. Entró al libro contable.');
+  });
 }
 
 /* ================= TURNOS ================= */
