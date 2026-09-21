@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08h gwm-sin-subtitulo -->
+<!-- build 2026-08-08i detalle-vehiculos -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2888,14 +2888,22 @@ function gwAddLinea(data){
   data=data||{};
   const d=document.createElement('div');
   d.className='gwrow';
-  d.style.cssText='display:grid;grid-template-columns:1.2fr 1fr 150px 2fr 130px 28px;gap:6px;margin-bottom:6px;align-items:center';
+  d.style.cssText='border:1px solid var(--borde);border-radius:8px;padding:8px;margin-bottom:8px;background:#fff';
   d.innerHTML=
-    '<input class="gw-chasis" placeholder="LGW…" value="'+esc(data.chasis||'')+'" style="text-transform:uppercase">'+
-    '<input class="gw-modelo" placeholder="H6" value="'+esc(data.modelo||'')+'">'+
-    '<select class="gw-plant" onchange="gwAplicarPlant(this)">'+gwPlantOptions()+'</select>'+
-    '<input class="gw-serv" placeholder="SERVICIO DE INSPECCION…" value="'+esc(data.serv||'')+'">'+
-    '<input class="gw-precio" type="number" min="0" placeholder="0" value="'+(data.precio!=null&&data.precio!==''?data.precio:'')+'" oninput="gwCalcTotal()">'+
-    '<button class="btn rojo mini" onclick="gwDelLinea(this)" title="Quitar" style="font-weight:700">×</button>';
+    '<div style="display:grid;grid-template-columns:1.2fr 1fr 150px 2fr 130px 28px;gap:6px;align-items:center">'+
+      '<input class="gw-chasis" placeholder="LGW… (N° serie)" value="'+esc(data.chasis||'')+'" style="text-transform:uppercase">'+
+      '<input class="gw-modelo" placeholder="H6 (modelo)" value="'+esc(data.modelo||'')+'">'+
+      '<select class="gw-plant" onchange="gwAplicarPlant(this)">'+gwPlantOptions()+'</select>'+
+      '<input class="gw-serv" placeholder="SERVICIO DE INSPECCION…" value="'+esc(data.serv||'')+'">'+
+      '<input class="gw-precio" type="number" min="0" placeholder="0" value="'+(data.precio!=null&&data.precio!==''?data.precio:'')+'" oninput="gwCalcTotal()">'+
+      '<button class="btn rojo mini" onclick="gwDelLinea(this)" title="Quitar" style="font-weight:700">×</button>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px">'+
+      '<input class="gw-anio" placeholder="Año" value="'+esc(data.anio||'')+'" style="font-size:12px">'+
+      '<input class="gw-patente" placeholder="Patente" value="'+esc(data.patente||'')+'" style="text-transform:uppercase;font-size:12px">'+
+      '<input class="gw-km" placeholder="KM" value="'+esc(data.km||'')+'" style="font-size:12px">'+
+      '<input class="gw-motor" placeholder="N° motor" value="'+esc(data.motor||'')+'" style="text-transform:uppercase;font-size:12px">'+
+    '</div>';
   $('gwLineas').appendChild(d);
   gwCalcTotal();
 }
@@ -2913,8 +2921,12 @@ function gwLeerLineas(){
     const modelo=(r.querySelector('.gw-modelo').value||'').trim();
     const serv=(r.querySelector('.gw-serv').value||'').trim();
     const precio=+r.querySelector('.gw-precio').value||0;
+    const anio=(r.querySelector('.gw-anio').value||'').trim();
+    const patente=(r.querySelector('.gw-patente').value||'').trim().toUpperCase();
+    const km=(r.querySelector('.gw-km').value||'').trim();
+    const motor=(r.querySelector('.gw-motor').value||'').trim().toUpperCase();
     const desc=[chasis,modelo,serv].filter(Boolean).join(' ');
-    return { chasis, modelo, serv, precio, desc };
+    return { chasis, modelo, serv, precio, anio, patente, km, motor, desc };
   }).filter(l=>l.desc && l.precio>0);
 }
 function gwCalcTotal(){
@@ -2987,7 +2999,8 @@ async function gwEmitir(){
   if(btn){ btn.disabled=false; btn.textContent='Emitir Factura ARCA'; }
   const receptorSnap={ nombre:(cl.razon||cl.nombre)||'', cuit:cl.cuit||'', condiva:cl.condiva||'Consumidor Final', dom:(cl.domFisc||cl.dir)||'' };
   const lineasSnap=lineas.map(l=>({ desc:l.desc, cant:1, unidad:'unidades', precio:l.precio, iva:ivaDef }));
-  const arca={ cae:data.cae, caeVto:data.caeVto, cbteTipo:data.cbteTipo, ptoVta:data.ptoVta, nro:data.nro, qrUrl:data.qrUrl, impNeto:data.impNeto, impIVA:data.impIVA, ivaArr:data.ivaArr||[], total:total, fecha:hoy(), receptor:receptorSnap, condVenta:'Contado', lineas:lineasSnap, soc:soc, periodo:{desde:hoy(),hasta:hoy(),vto:hoy()} };
+  const vehSnap=lineas.map(l=>({ modelo:l.modelo||'', anio:l.anio||'', patente:l.patente||'', serie:l.chasis||'', km:l.km||'', motor:l.motor||'' })).filter(v=>v.modelo||v.anio||v.patente||v.serie||v.km||v.motor);
+  const arca={ cae:data.cae, caeVto:data.caeVto, cbteTipo:data.cbteTipo, ptoVta:data.ptoVta, nro:data.nro, qrUrl:data.qrUrl, impNeto:data.impNeto, impIVA:data.impIVA, ivaArr:data.ivaArr||[], total:total, fecha:hoy(), receptor:receptorSnap, condVenta:'Contado', lineas:lineasSnap, vehiculos:vehSnap, soc:soc, periodo:{desde:hoy(),hasta:hoy(),vto:hoy()} };
   const fRec={ id:uid(), f:hoy(), ot:otId, cliente:receptorSnap.nombre, tipo:CBTE_LABEL[data.cbteTipo]||tipo, nro:String(data.ptoVta).padStart(4,'0')+'-'+String(data.nro).padStart(8,'0'), arca:true, esNC:false, soc:soc, monto:total, arcaData:arca, tanda:true };
   db.facturas.push(fRec);
   guardar(); render();
@@ -3846,6 +3859,22 @@ function armarFacturaARCA(o){
       : [(ix+1), esc(l.desc), fnum2(l.cant), l.unidad, fnum2(l.grossUnit), '0,00', '0,00', fnum2(l.gross)];
     return '<tr style="background:#fff">'+c.map((v,i)=>'<td style="font-size:9px;background:#fff;border:none;color:#000;padding:3px 4px;vertical-align:top;text-align:'+(i>=2?'right':'left')+'">'+v+'</td>').join('')+'</tr>';
   }).join('');
+  // ---- detalle de vehiculos ----
+  let vehArr = (Array.isArray(A.vehiculos) && A.vehiculos.length) ? A.vehiculos
+    : ((o.veh||o.dominio||o.km||o.chasis||o.motor) ? [{ modelo:o.veh||'', anio:'', patente:o.dominio||'', serie:o.chasis||'', km:o.km||'', motor:o.motor||'', apertura:o.fecha||'', terminado:o.fechaEntrega||'' }] : []);
+  let vehBox = '';
+  if(vehArr.length){
+    const vcols = [ {k:'modelo',t:'MODELO'}, {k:'anio',t:'AÑO'}, {k:'patente',t:'PATENTE'}, {k:'serie',t:'N° SERIE'}, {k:'km',t:'KM'}, {k:'motor',t:'N° MOTOR'}, {k:'apertura',t:'APERTURA',f:1}, {k:'terminado',t:'TERMINADO',f:1} ];
+    const vshow = vcols.filter(c => vehArr.some(v => { const val=v[c.k]; return val!=null && String(val).trim()!==''; }));
+    if(vshow.length){
+      const vth = vshow.map(c=>'<th style="border:1px solid #000;background:'+accLight+';color:#000;font-size:8px;font-weight:bold;padding:3px 5px;text-align:left;white-space:nowrap">'+c.t+'</th>').join('');
+      const vrows = vehArr.map(v=>'<tr>'+vshow.map(c=>{ let val=v[c.k]; val=(val==null?'':String(val)); if(c.f && val){ try{ val=fFecha(val); }catch(e){} } return '<td style="border:1px solid #000;font-size:9px;color:#000;padding:3px 5px;text-align:left;white-space:nowrap">'+esc(val||'')+'</td>'; }).join('')+'</tr>').join('');
+      vehBox = '<div style="margin-top:10px">'+
+        '<div style="'+box+'background:'+accLight+';font-weight:bold;font-size:9px;padding:3px 6px;color:#000">DETALLE DE '+(vehArr.length>1?'VEHÍCULOS':'VEHÍCULO')+'</div>'+
+        '<table style="width:100%;border-collapse:collapse;border:1px solid #000;border-top:none;table-layout:auto"><thead><tr>'+vth+'</tr></thead><tbody>'+vrows+'</tbody></table>'+
+      '</div>';
+    }
+  }
   // ---- totales ----
   const rowsData = esA
     ? [['Importe Neto Gravado', fnum2(D.neto)], ['IVA 27%', fnum2(D.ivas[27]||0)], ['IVA 21%', fnum2(D.ivas[21]||0)], ['IVA 10.5%', fnum2(D.ivas[10.5]||0)], ['IVA 5%', fnum2(D.ivas[5]||0)], ['IVA 2.5%', fnum2(D.ivas[2.5]||0)], ['IVA 0%', fnum2(D.ivas[0]||0)], ['Importe Otros Tributos', fnum2(D.otrosTributos)], ['Importe Total', fnum2(D.total), true]]
@@ -3916,7 +3945,8 @@ function armarFacturaARCA(o){
         ? '<col style="width:6%"><col style="width:29%"><col style="width:7%"><col style="width:8%"><col style="width:11%"><col style="width:6%"><col style="width:11%"><col style="width:10%"><col style="width:12%">'
         : '<col style="width:8%"><col style="width:40%"><col style="width:9%"><col style="width:9%"><col style="width:12%"><col style="width:8%"><col style="width:8%"><col style="width:12%">')+'</colgroup>'+
       '<thead><tr>'+th+'</tr></thead><tbody>'+filas+'</tbody></table></div>'+
-    '<div style="min-height:150px"></div>'+
+    vehBox +
+    (vehBox ? '<div style="min-height:40px"></div>' : '<div style="min-height:150px"></div>')+
     // totales
     totBox + leyB +
     // footer
