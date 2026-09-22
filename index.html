@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08i detalle-vehiculos -->
+<!-- build 2026-08-08j service-cerrado -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -886,19 +886,37 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         </div>
       </div>
 
+      <div class="seccion" id="otSecServ" style="border:1.5px solid var(--borde2)">
+        <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Service con precio cerrado (GWM)</h4>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--tinta);cursor:pointer"><input type="checkbox" id="otServCerrado" onchange="toggleServCerrado()" style="width:auto;margin:0"> Este es un service de precio cerrado — no discriminar mano de obra ni repuestos</label>
+        <div id="otServBox" hidden style="margin-top:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 210px;gap:10px;align-items:end">
+            <div class="campo" style="margin:0"><label>Plantilla de service (opcional)</label><select id="otServPlant" onchange="aplicarServPlant()"></select></div>
+            <div class="campo" style="margin:0"><label>Nombre del service</label><input id="otServNombre" placeholder="Service 10.000 km GWM"></div>
+            <div class="campo" style="margin:0"><label>Total del service (todo incluido)</label><input type="number" id="otServPrecio" min="0" value="0" oninput="calcOT()" style="font-weight:700"></div>
+          </div>
+          <div class="campo" style="margin:12px 0 0"><label>Detalle de lo realizado (un ítem por línea — se lista en el presupuesto sin precios)</label><textarea id="otServDet" rows="4" placeholder="Filtro de aceite&#10;Aceite 5W30 x5 L&#10;Filtro de aire&#10;Service 10.000 km según tabla GWM"></textarea></div>
+          <div style="margin-top:14px;border-top:1px dashed var(--borde2);padding-top:12px">
+            <div style="font-size:12.5px;font-weight:600;color:var(--tinta);margin-bottom:8px">Trabajos por fuera del service (cada uno con su valor, aparte)</div>
+            <div id="otServExtras"></div>
+            <button class="btn blanco mini" onclick="agregarServExtra()">+ Agregar trabajo por fuera</button>
+          </div>
+        </div>
+      </div>
+
       <div class="seccion">
         <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Repuestos e insumos</h4>
         <div class="itemrow itemhead"><div>#</div><div>Descripción</div><div>Proveedor</div><div>Cant.</div><div>Unidad</div><div>Costo unit.</div><div>Precio cliente</div><div>Stock vinculado</div><div></div></div>
         <div id="otItems"></div>
         <button class="btn blanco mini" onclick="agregarItem()">+ Agregar repuesto</button>
         <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12.5px;font-weight:600;color:var(--tinta);cursor:pointer"><input type="checkbox" id="otDetalleRep" onchange="toggleDetalleRep()" style="width:auto;margin:0"> Detallar cada repuesto con su precio en el presupuesto del cliente</label>
-        <div style="display:grid;grid-template-columns:1fr 240px;gap:14px;align-items:end;margin-top:14px;border-top:1px dashed var(--borde2);padding-top:12px">
+        <div id="otRepVentaWrap" style="display:grid;grid-template-columns:1fr 240px;gap:14px;align-items:end;margin-top:14px;border-top:1px dashed var(--borde2);padding-top:12px">
           <div style="font-size:11.5px;color:var(--gris);line-height:1.5">Los costos de arriba son internos (lo que gastaste). Costo de repuestos: <b id="otRepCosto" style="font-family:var(--mono);color:var(--tinta)">$0</b>.<br>A la derecha ponés el <b>total que le cobrás al cliente</b> por repuestos e insumos (es lo único que ve el cliente).</div>
           <div class="campo" style="margin:0"><label>Total repuestos e insumos (cliente)</label><input type="number" id="otRepVenta" min="0" value="0" oninput="calcOT()" style="font-weight:700"></div>
         </div>
       </div>
 
-      <div class="seccion">
+      <div class="seccion" id="otSecMO">
         <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Mano de obra</h4>
         <div style="display:grid;grid-template-columns:1fr 300px;gap:12px;align-items:start">
           <div class="campo" style="margin:0"><label>Detalle (se imprime en el presupuesto del cliente)</label>
@@ -1597,16 +1615,21 @@ function moDescMonto(o){
   return Math.round(bruto * v/100);
 }
 function moNeto(o){ return Math.max(0, (+o.moPrecio||0) - moDescMonto(o)); }
+function servExtrasTotal(o){ return (o.servExtras||[]).reduce((a,e)=>a+(+e.precio||0),0); }
 function totalesOT(o){
   let costo=0;
   (o.items||[]).forEach(i=>{ costo += (i.cant||0)*(i.costo||0); });
   costo += +o.moCosto||0; // compat órdenes viejas
+  if(o.servCerrado){
+    const serv = +o.servPrecio||0, extras = servExtrasTotal(o), venta = serv + extras;
+    return { costo, venta, rep:0, moBruto:0, moDesc:0, mo:0, serv, extras, servCerrado:true, gan: venta-costo };
+  }
   const rep = (o.repVenta!==undefined && o.repVenta!==null && o.repVenta!=='')
     ? (+o.repVenta||0)
     : (o.items||[]).reduce((a,i)=>a+(i.cant||0)*(i.precio||0),0); // compat: suma precios viejos
   const moBruto = +o.moPrecio||0, moDesc = moDescMonto(o), mo = moBruto - moDesc;
   const venta = rep + mo;
-  return { costo, venta, rep, moBruto, moDesc, mo, gan: venta-costo };
+  return { costo, venta, rep, moBruto, moDesc, mo, serv:0, extras:0, servCerrado:false, gan: venta-costo };
 }
 const ventaRepuestos = o => totalesOT(o).rep;
 
@@ -2006,6 +2029,13 @@ function abrirOT(id){
   $('otItems').innerHTML = '';
   (o.items && o.items.length ? o.items : [null]).forEach(agregarItem);
   if($('otDetalleRep')){ $('otDetalleRep').checked = !!o.detallarRep; toggleDetalleRep(); }
+  fillServPlantillas();
+  if($('otServPlant')) $('otServPlant').value='';
+  if($('otServNombre')) $('otServNombre').value = o.servNombre||'';
+  if($('otServPrecio')) $('otServPrecio').value = o.servPrecio||0;
+  if($('otServDet')) $('otServDet').value = o.servDet||'';
+  if($('otServExtras')){ $('otServExtras').innerHTML=''; (o.servExtras||[]).forEach(agregarServExtra); }
+  if($('otServCerrado')){ $('otServCerrado').checked=!!o.servCerrado; toggleServCerrado(); }
   if($('cliDrop')) $('cliDrop').hidden=true;
   const cliMatch = (o.clienteId && db.clientes.find(c=>c.id===o.clienteId)) || db.clientes.find(c=>(c.nombre||'').trim().toLowerCase()===(o.cliente||'').trim().toLowerCase());
   otClienteSelId = cliMatch ? cliMatch.id : null;
@@ -2057,10 +2087,50 @@ function leerItems(){
   }));
 }
 function toggleDetalleRep(){ const on=$('otDetalleRep')&&$('otDetalleRep').checked; if($('otRepVenta')){ $('otRepVenta').disabled=on; $('otRepVenta').title=on?'Se calcula sumando el precio de cada repuesto':''; } calcOT(); }
+/* ===== Service con precio cerrado (GWM) ===== */
+function servPlantOptions(sel){
+  const ps=(db.gwmPlantillas||[]);
+  return '<option value="">— elegir plantilla —</option>'+ps.map(p=>'<option value="'+p.id+'"'+(sel===p.id?' selected':'')+'>'+esc(p.nombre)+(p.precio?(' · '+money(p.precio)):'')+'</option>').join('');
+}
+function fillServPlantillas(){ if($('otServPlant')) $('otServPlant').innerHTML=servPlantOptions(''); }
+function aplicarServPlant(){
+  const sel=$('otServPlant'); if(!sel) return;
+  const p=(db.gwmPlantillas||[]).find(x=>x.id===sel.value); if(!p) return;
+  if(p.nombre && $('otServNombre')) $('otServNombre').value=p.nombre;
+  if(p.precio && $('otServPrecio')) $('otServPrecio').value=p.precio;
+  if(p.texto && $('otServDet') && !$('otServDet').value.trim()) $('otServDet').value=p.texto;
+  calcOT();
+}
+function agregarServExtra(data){
+  data=data||{};
+  const d=document.createElement('div');
+  d.className='servextra';
+  d.style.cssText='display:grid;grid-template-columns:1fr 150px 28px;gap:8px;margin-bottom:6px;align-items:center';
+  d.innerHTML=
+    '<input class="se-desc" placeholder="Reparación moldura lateral de puerta" value="'+esc(data.desc||'')+'">'+
+    '<input class="se-precio" type="number" min="0" placeholder="0" value="'+(data.precio!=null&&data.precio!==''?data.precio:'')+'" oninput="calcOT()">'+
+    '<button class="quitar" title="Quitar" onclick="this.parentElement.remove();calcOT()">×</button>';
+  $('otServExtras').appendChild(d);
+  calcOT();
+}
+function leerServExtras(){
+  if(!$('otServExtras')) return [];
+  return [...$('otServExtras').querySelectorAll('.servextra')].map(r=>({
+    desc:(r.querySelector('.se-desc').value||'').trim(),
+    precio:+r.querySelector('.se-precio').value||0
+  })).filter(e=>e.desc || e.precio>0);
+}
+function toggleServCerrado(){
+  const on=$('otServCerrado')&&$('otServCerrado').checked;
+  if($('otServBox')) $('otServBox').hidden=!on;
+  if($('otRepVentaWrap')) $('otRepVentaWrap').style.display=on?'none':'';
+  if($('otSecMO')) $('otSecMO').style.display=on?'none':'';
+  calcOT();
+}
 function calcOT(){
   const items = leerItems();
   if($('otDetalleRep') && $('otDetalleRep').checked){ const sum=items.reduce((a,i)=>a+(i.cant||0)*(i.precio||0),0); if($('otRepVenta')) $('otRepVenta').value=sum; }
-  const oTmp = { items, repVenta:$('otRepVenta').value, moPrecio:+$('otMOprecio').value||0, moDescTipo:($('otMODescTipo')?$('otMODescTipo').value:'pct'), moDescVal:+($('otMODescVal')?$('otMODescVal').value:0)||0 };
+  const oTmp = { items, repVenta:$('otRepVenta').value, moPrecio:+$('otMOprecio').value||0, moDescTipo:($('otMODescTipo')?$('otMODescTipo').value:'pct'), moDescVal:+($('otMODescVal')?$('otMODescVal').value:0)||0, servCerrado:($('otServCerrado')?$('otServCerrado').checked:false), servPrecio:+($('otServPrecio')?$('otServPrecio').value:0)||0, servExtras:leerServExtras() };
   const t = totalesOT(oTmp);
   const dm = moDescMonto(oTmp);
   if($('otMODescHint')) $('otMODescHint').textContent = dm>0 ? ('− '+money(dm)+'  ·  Mano de obra neta: '+money(moNeto(oTmp))) : '';
@@ -2115,6 +2185,7 @@ function guardarOTsilencioso(){
     clienteId: otClienteSelId || (otEdit?otEdit.clienteId:null), docCli: ($('otDocCli')?$('otDocCli').value:'orden'),
     items:leerItems(), repVenta:+$('otRepVenta').value||0, detallarRep:!!($('otDetalleRep')&&$('otDetalleRep').checked), moDet:$('otMOdet').value.trim(), moCosto:0, moPrecio:+$('otMOprecio').value||0,
     moDescTipo:($('otMODescTipo')?$('otMODescTipo').value:'pct'), moDescVal:+($('otMODescVal')?$('otMODescVal').value:0)||0,
+    servCerrado:($('otServCerrado')?$('otServCerrado').checked:false), servNombre:($('otServNombre')?$('otServNombre').value.trim():''), servPrecio:+($('otServPrecio')?$('otServPrecio').value:0)||0, servDet:($('otServDet')?$('otServDet').value.trim():''), servExtras:leerServExtras(),
     aCuenta: leerACuenta()
   };
   if(otEdit){ Object.assign(otEdit, datos); }
@@ -2143,6 +2214,7 @@ function snapOT(o){
     repVenta:o.repVenta, detallarRep:!!o.detallarRep,
     moDet:o.moDet, moPrecio:+o.moPrecio||0, moDescTipo:o.moDescTipo||'pct', moDescVal:+o.moDescVal||0,
     aCuenta:(o.aCuenta||[]).map(p=>({f:p.f,monto:p.monto,nota:p.nota})),
+    servCerrado:!!o.servCerrado, servNombre:o.servNombre||'', servPrecio:+o.servPrecio||0, servDet:o.servDet||'', servExtras:(o.servExtras||[]).map(e=>({desc:e.desc,precio:e.precio})),
     total:t.venta, rep:t.rep, mo:t.mo, moDesc:t.moDesc };
 }
 function guardarVersion(){
@@ -2172,7 +2244,8 @@ function verVersionPDF(verId){
     cliente:otEdit.cliente, celu:otEdit.celu, email:otEdit.email,
     veh:otEdit.veh, dominio:otEdit.dominio, km:otEdit.km, chasis:otEdit.chasis, motor:otEdit.motor,
     docCli:v.docCli||'presupuesto', items:v.items||[], repVenta:v.repVenta, detallarRep:!!v.detallarRep,
-    moDet:v.moDet, moPrecio:+v.moPrecio||0, moDescTipo:v.moDescTipo||'pct', moDescVal:+v.moDescVal||0, aCuenta:v.aCuenta||[] };
+    moDet:v.moDet, moPrecio:+v.moPrecio||0, moDescTipo:v.moDescTipo||'pct', moDescVal:+v.moDescVal||0, aCuenta:v.aCuenta||[],
+    servCerrado:!!v.servCerrado, servNombre:v.servNombre||'', servPrecio:+v.servPrecio||0, servDet:v.servDet||'', servExtras:v.servExtras||[] };
   verPDF(o,'cliente');
 }
 function borrarVersion(verId){
@@ -2746,6 +2819,13 @@ function construirLineasFactura(factOT, ivaDefE){
   const repModo=($('fRepModo')&&$('fRepModo').value)||'simple';
   const moDetInc=$('fMOdet')&&$('fMOdet').checked;
   let lineasSnap=[];
+  if(factOT.servCerrado && !descFact){
+    lineasSnap.push({ desc:(factOT.servNombre||'Service'), cant:1, unidad:'unidades', precio:(+factOT.servPrecio||0), iva:ivaDefE });
+    (factOT.servExtras||[]).filter(e=>((e.desc||'').trim())||(+e.precio||0)>0).forEach(e=>{
+      lineasSnap.push({ desc:(e.desc||'Trabajo adicional'), cant:1, unidad:'unidades', precio:(+e.precio||0), iva:ivaDefE });
+    });
+    return lineasSnap;
+  }
   if(descFact){
     lineasSnap=[{ desc:descFact, cant:1, unidad:'unidades', precio:tSnap.venta, iva:ivaDefE }];
   } else {
@@ -2807,10 +2887,15 @@ async function facturarConArca(ot, tipoSel){
   const t = totalesOT(ot);
   const ivaDef = (db.cfg.ivaDef!==undefined ? db.cfg.ivaDef : 21);
   const items = [];
+  if(ot.servCerrado){
+    if((+ot.servPrecio||0)>0) items.push({ precio:(+ot.servPrecio||0), cant:1, iva:ivaDef });
+    (ot.servExtras||[]).filter(e=>(+e.precio||0)>0).forEach(e=>items.push({ precio:(+e.precio||0), cant:1, iva:ivaDef }));
+  } else {
   (ot.items||[]).forEach(i=>{ const precio=+i.precio||0, cant=+i.cant||0; if(precio>0 && cant>0) items.push({ precio, cant, iva: (i.iva!==undefined? i.iva : ivaDef) }); });
   const repManual = (ot.repVenta!==undefined && ot.repVenta!==null && ot.repVenta!=='');
   if((!items.length || repManual) && t.rep>0){ items.length=0; items.push({ precio:t.rep, cant:1, iva:ivaDef }); }
   if(t.mo>0) items.push({ precio:t.mo, cant:1, iva:ivaDef });
+  }
   if(!items.length) throw new Error('La orden no tiene importe para facturar.');
   const perD=($('fPerDesde').value||hoy()).replace(/-/g,''), perH=($('fPerHasta').value||hoy()).replace(/-/g,''), perV=($('fVtoPago').value||hoy()).replace(/-/g,'');
   const body = { ptoVta:+a.ptoVta, receptor, items, total:t.venta, ticket:ot.numero, ventaId:ot.id, concepto:3, fchServDesde:perD, fchServHasta:perH, fchVtoPago:perV };
@@ -3605,10 +3690,18 @@ function otDesdeModal(){
     veh:$('otVeh').value, dominio:$('otDominio').value, km:$('otKm').value, chasis:$('otChasis').value, motor:$('otMotor').value,
     docCli: ($('otDocCli')?$('otDocCli').value:'orden'),
     items:leerItems(), repVenta:+$('otRepVenta').value||0, detallarRep:!!($('otDetalleRep')&&$('otDetalleRep').checked), moDet:$('otMOdet').value, moPrecio:+$('otMOprecio').value||0,
-    moDescTipo:($('otMODescTipo')?$('otMODescTipo').value:'pct'), moDescVal:+($('otMODescVal')?$('otMODescVal').value:0)||0 };
+    moDescTipo:($('otMODescTipo')?$('otMODescTipo').value:'pct'), moDescVal:+($('otMODescVal')?$('otMODescVal').value:0)||0,
+    servCerrado:($('otServCerrado')?$('otServCerrado').checked:false), servNombre:($('otServNombre')?$('otServNombre').value.trim():''), servPrecio:+($('otServPrecio')?$('otServPrecio').value:0)||0, servDet:($('otServDet')?$('otServDet').value.trim():''), servExtras:leerServExtras() };
 }
 const PLANTILLA_MSG_DEFAULT = '{taller}\nPRESUPUESTO {numero} — {fecha}\n\nCliente: {cliente}\nVehículo: {vehiculo} ({dominio})\n\n{items}Total repuestos: {repuestos}\nMano de obra: {manoobra}\nTOTAL: {total}\n\n{condiciones}';
 function itemsTexto(o){
+  if(o.servCerrado){
+    const sItems=(o.servDet||'').split('\n').map(x=>x.trim()).filter(Boolean);
+    let s=(o.servNombre||'Service')+':\n';
+    sItems.forEach(d=>{ s+='- '+d+'\n'; });
+    (o.servExtras||[]).filter(e=>((e.desc||'').trim())||(+e.precio||0)>0).forEach(e=>{ s+='- '+(e.desc||'Trabajo adicional')+': '+money(+e.precio||0)+'\n'; });
+    return s+'\n';
+  }
   const c=(o.items||[]).filter(i=>i.desc);
   if(!c.length) return '';
   let s='Repuestos e insumos:\n';
@@ -3631,6 +3724,14 @@ function resumenTextoOT(o){
   x += 'PRESUPUESTO '+o.numero+' — '+fFecha(o.fecha)+'\n\n';
   x += 'Cliente: '+(o.cliente||'—')+'\n';
   x += 'Vehículo: '+(o.veh||'—')+(o.dominio?' ('+o.dominio+')':'')+'\n\n';
+  if(o.servCerrado){
+    const sItems=(o.servDet||'').split('\n').map(y=>y.trim()).filter(Boolean);
+    x += (o.servNombre||'Service')+':\n';
+    sItems.forEach(d=>{ x += '- '+d+'\n'; });
+    x += (o.servNombre||'Service')+' (todo incluido): '+money(t.serv)+'\n';
+    (o.servExtras||[]).filter(e=>((e.desc||'').trim())||(+e.precio||0)>0).forEach(e=>{ x += (e.desc||'Trabajo adicional')+': '+money(+e.precio||0)+'\n'; });
+    x += 'TOTAL: '+money(t.venta)+'\n\n';
+  } else {
   const conItems = (o.items||[]).filter(i=>i.desc);
   if(conItems.length){
     x += 'Repuestos e insumos:\n';
@@ -3642,6 +3743,7 @@ function resumenTextoOT(o){
   if(o.moDet) x += '('+o.moDet+')\n';
   if(t.moDesc>0) x += 'Descuento mano de obra'+(((o.moDescTipo||'pct')==='pct'&&+o.moDescVal)?' ('+(+o.moDescVal)+'%)':'')+': -'+money(t.moDesc)+'\n';
   x += 'TOTAL: '+money(t.venta)+'\n\n';
+  }
   x += (db.cfg.condiciones && db.cfg.condiciones.trim()) ? db.cfg.condiciones.trim() : ('Presupuesto válido por '+((db.cfg.validez!==undefined)?db.cfg.validez:7)+' días.');
   return x;
 }
@@ -3986,6 +4088,17 @@ function armarHoja(o, modo){
 
   let tabla, tots, marca='';
   if(modo==='cliente'){
+   if(o.servCerrado){
+    const sItems=(o.servDet||'').split('\n').map(x=>x.trim()).filter(Boolean);
+    tabla = '<table><thead><tr><th style="width:34px">#</th><th>'+esc(o.servNombre||'Service')+' — detalle de lo realizado</th></tr></thead><tbody>'+
+      (sItems.length?sItems.map((d,x)=>'<tr><td>'+(x+1)+'</td><td>'+esc(d)+'</td></tr>').join(''):'<tr><td colspan="2">—</td></tr>')+
+      '</tbody></table>';
+    const sExtras=(o.servExtras||[]).filter(e=>((e.desc||'').trim())||(+e.precio||0)>0);
+    tots = '<div class="h-tots">'+
+      '<div class="fila"><span>'+esc(o.servNombre||'Service')+' (todo incluido)</span><b>'+money(t.serv)+'</b></div>'+
+      sExtras.map(e=>'<div class="fila"><span>'+esc(e.desc||'Trabajo adicional')+'</span><b>'+money(+e.precio||0)+'</b></div>').join('')+
+      '<div class="total"><span>TOTAL</span><b>'+money(t.venta)+'</b></div></div>';
+   } else {
     tabla = o.detallarRep
       ? '<table><thead><tr><th style="width:28px">#</th><th>Repuestos e insumos</th><th class="num">Cant.</th><th class="num">P. unit.</th><th class="num">Subtotal</th></tr></thead><tbody>'+
         (o.items.map((i,x)=>{ const pu=i.precio||0, st=(i.cant||0)*pu; return '<tr><td>'+(x+1)+'</td><td>'+esc(i.desc)+'</td><td class="num">'+(i.cant||0)+(i.unidad&&i.unidad!=="Unidad"?" "+esc(i.unidad):"")+'</td><td class="num">'+money(pu)+'</td><td class="num">'+money(st)+'</td></tr>'; }).join('') || '<tr><td colspan="5">—</td></tr>')+
@@ -3998,6 +4111,7 @@ function armarHoja(o, modo){
       '<div class="fila"><span>Mano de obra</span><b>'+money(t.moBruto)+'</b></div>'+
       (t.moDesc>0 ? '<div class="fila"><span>Descuento mano de obra'+(((o.moDescTipo||'pct')==='pct'&&+o.moDescVal)?' ('+(+o.moDescVal)+'%)':'')+'</span><b>−'+money(t.moDesc)+'</b></div>' : '')+
       '<div class="total"><span>TOTAL</span><b>'+money(t.venta)+'</b></div></div>';
+   }
     const acArr = (o.aCuenta||[]).filter(p=>(+p.monto||0)>0);
     if(acArr.length){
       const totAC = acArr.reduce((a,p)=>a+(+p.monto||0),0);
@@ -4010,10 +4124,13 @@ function armarHoja(o, modo){
     tabla = '<table><thead><tr><th style="width:30px">#</th><th>Descripción</th><th>Proveedor</th><th class="num">Cant.</th><th class="num">Costo</th></tr></thead><tbody>'+
       (o.items.map((i,x)=>'<tr><td>'+(x+1)+'</td><td>'+esc(i.desc)+'</td><td>'+esc(i.prov||'—')+'</td><td class="num">'+(i.cant||0)+(i.unidad&&i.unidad!=="Unidad"?" "+esc(i.unidad):"")+'</td><td class="num">'+money((i.cant||0)*(i.costo||0))+'</td></tr>').join('') || '<tr><td colspan="5">—</td></tr>')+
       '</tbody></table>';
-    tots = '<div class="h-tots">'+
-      '<div class="fila"><span>Repuestos e insumos (cliente)</span><b>'+money(rep)+'</b></div>'+
-      '<div class="fila"><span>Mano de obra</span><b>'+money(t.moBruto)+'</b></div>'+
-      (t.moDesc>0 ? '<div class="fila"><span>Descuento mano de obra'+(((o.moDescTipo||'pct')==='pct'&&+o.moDescVal)?' ('+(+o.moDescVal)+'%)':'')+'</span><b>−'+money(t.moDesc)+'</b></div>' : '')+
+    const ventaRows = o.servCerrado
+      ? ('<div class="fila"><span>'+esc(o.servNombre||'Service')+' (todo incluido)</span><b>'+money(t.serv)+'</b></div>'+
+         (o.servExtras||[]).filter(e=>((e.desc||'').trim())||(+e.precio||0)>0).map(e=>'<div class="fila"><span>'+esc(e.desc||'Trabajo adicional')+'</span><b>'+money(+e.precio||0)+'</b></div>').join(''))
+      : ('<div class="fila"><span>Repuestos e insumos (cliente)</span><b>'+money(rep)+'</b></div>'+
+         '<div class="fila"><span>Mano de obra</span><b>'+money(t.moBruto)+'</b></div>'+
+         (t.moDesc>0 ? '<div class="fila"><span>Descuento mano de obra'+(((o.moDescTipo||'pct')==='pct'&&+o.moDescVal)?' ('+(+o.moDescVal)+'%)':'')+'</span><b>−'+money(t.moDesc)+'</b></div>' : ''));
+    tots = '<div class="h-tots">'+ ventaRows +
       '<div class="total"><span>TOTAL VENTA</span><b>'+money(t.venta)+'</b></div></div>'+
       '<div class="h-gan"><div class="fila"><span>Costo repuestos</span><b>'+money(t.costo)+'</b></div>'+
       '<div class="fila"><span><b>Ganancia</b></span><b>'+money(t.gan)+(t.venta?' ('+Math.round(t.gan/t.venta*100)+'%)':'')+'</b></div></div>';
@@ -4036,7 +4153,7 @@ function armarHoja(o, modo){
     '<div class="h-info"><div><h4>Cliente</h4><div class="cli">'+esc(o.cliente||'—')+'</div><div style="font-size:12px;color:#555;margin-top:3px">'+esc(o.celu?('Cel: '+o.celu):'')+(o.email?' · '+esc(o.email):'')+'</div></div>'+
     '<div class="der"><h4>Emisión</h4>Buenos Aires, '+fFecha(o.fecha)+'</div></div>'+
     veh + tabla +
-    '<div class="h-mo"><h4>Mano de obra</h4><p>'+esc(o.moDet||'—')+'</p></div>'+
+    (o.servCerrado ? '' : '<div class="h-mo"><h4>Mano de obra</h4><p>'+esc(o.moDet||'—')+'</p></div>')+
     tots +
     (esFact ?
       '<div style="margin-top:14px;display:flex;gap:14px;align-items:center;border:1px solid #ddd;border-radius:8px;padding:10px 12px">'+
