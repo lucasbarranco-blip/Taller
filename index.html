@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08j service-cerrado -->
+<!-- build 2026-08-08k plantilla-repuestos -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -604,6 +604,12 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
           <div class="campo" style="margin:0"><label>Precio (c/IVA)</label><input id="gwPlPrecio" type="number" min="0" placeholder="0"></div>
         </div>
         <div class="campo" style="margin:8px 0 0"><label>Texto que va en la factura</label><input id="gwPlTexto" placeholder="SERVICIO DE INSPECCION PRE ENTREGA E INSUMOS."></div>
+        <div style="margin-top:10px;border-top:1px dashed var(--borde2);padding-top:10px">
+          <label style="font-size:11.5px;font-weight:700;color:var(--tinta);text-transform:uppercase;letter-spacing:.03em">Repuestos del inventario que incluye</label>
+          <div style="font-size:11px;color:var(--gris2);margin:4px 0 8px">Cuando elijas esta plantilla en una orden, estos repuestos se cargan solos (con su costo y descuento de stock).</div>
+          <div id="gwPlReps"></div>
+          <button class="btn blanco mini" onclick="gwPlAddRep()">+ Vincular repuesto</button>
+        </div>
         <input type="hidden" id="gwPlId">
         <button class="btn blanco mini" style="margin-top:10px" onclick="gwGuardarPlantilla()">Guardar plantilla</button>
         <div id="gwPlLista" style="margin-top:12px"></div>
@@ -2098,7 +2104,18 @@ function aplicarServPlant(){
   const p=(db.gwmPlantillas||[]).find(x=>x.id===sel.value); if(!p) return;
   if(p.nombre && $('otServNombre')) $('otServNombre').value=p.nombre;
   if(p.precio && $('otServPrecio')) $('otServPrecio').value=p.precio;
-  if(p.texto && $('otServDet') && !$('otServDet').value.trim()) $('otServDet').value=p.texto;
+  const yaInv=[...$('otItems').querySelectorAll('.i-inv')].map(x=>x.value).filter(Boolean);
+  const repNombres=[];
+  (p.repuestos||[]).forEach(r=>{
+    const inv=(db.inv||[]).find(x=>x.id===r.invId); if(!inv) return;
+    repNombres.push(((r.cant&&r.cant!==1)?(r.cant+' '):'')+inv.prod);
+    if(yaInv.indexOf(inv.id)>=0) return;
+    agregarItem({ desc:inv.prod, prov:inv.prov||'', cant:(r.cant||1), unidad:inv.unidad||'Unidad', costo:+inv.costo||0, precio:0, invId:inv.id });
+  });
+  if($('otServDet') && !$('otServDet').value.trim()){
+    const ls=[]; if(p.texto) ls.push(p.texto); repNombres.forEach(n=>ls.push(n));
+    $('otServDet').value=ls.join('\n');
+  }
   calcOT();
 }
 function agregarServExtra(data){
@@ -3020,22 +3037,43 @@ function gwCalcTotal(){
   const n=$('gwLineas').querySelectorAll('.gwrow').length;
   if($('gwTotBox')) $('gwTotBox').innerHTML='Total: '+money(tot)+' <span style="color:var(--gris2);font-weight:500;font-size:11px">· '+n+' renglón'+(n!==1?'es':'')+'</span>';
 }
+function gwPlRepOptions(sel){
+  return '<option value="">— elegir repuesto —</option>'+(db.inv||[]).map(i=>'<option value="'+i.id+'"'+(sel===i.id?' selected':'')+'>'+esc(i.sku)+' · '+esc(i.prod)+'</option>').join('');
+}
+function gwPlAddRep(data){
+  data=data||{};
+  const d=document.createElement('div');
+  d.className='gwplrep';
+  d.style.cssText='display:grid;grid-template-columns:1fr 88px 28px;gap:8px;margin-bottom:6px;align-items:center';
+  d.innerHTML=
+    '<select class="gpr-inv">'+gwPlRepOptions(data.invId||'')+'</select>'+
+    '<input class="gpr-cant" type="number" min="0" step="any" placeholder="Cant." value="'+(data.cant!=null&&data.cant!==''?data.cant:1)+'">'+
+    '<button class="quitar" title="Quitar" onclick="this.parentElement.remove()">×</button>';
+  $('gwPlReps').appendChild(d);
+}
+function gwPlReadReps(){
+  if(!$('gwPlReps')) return [];
+  return [...$('gwPlReps').querySelectorAll('.gwplrep')].map(r=>({
+    invId:r.querySelector('.gpr-inv').value||'',
+    cant:+r.querySelector('.gpr-cant').value||0
+  })).filter(x=>x.invId && x.cant>0);
+}
 function gwGuardarPlantilla(){
-  const nombre=$('gwPlNombre').value.trim(), texto=$('gwPlTexto').value.trim(), precio=+$('gwPlPrecio').value||0;
+  const nombre=$('gwPlNombre').value.trim(), texto=$('gwPlTexto').value.trim(), precio=+$('gwPlPrecio').value||0, repuestos=gwPlReadReps();
   if(!nombre) return toast('Ponele un nombre a la plantilla.');
   db.gwmPlantillas=db.gwmPlantillas||[];
   const id=$('gwPlId').value;
-  if(id){ const x=db.gwmPlantillas.find(p=>p.id===id); if(x){ x.nombre=nombre; x.texto=texto; x.precio=precio; } }
-  else { db.gwmPlantillas.push({ id:uid(), nombre, texto, precio }); }
-  $('gwPlId').value=''; $('gwPlNombre').value=''; $('gwPlTexto').value=''; $('gwPlPrecio').value='';
+  if(id){ const x=db.gwmPlantillas.find(p=>p.id===id); if(x){ x.nombre=nombre; x.texto=texto; x.precio=precio; x.repuestos=repuestos; } }
+  else { db.gwmPlantillas.push({ id:uid(), nombre, texto, precio, repuestos }); }
+  $('gwPlId').value=''; $('gwPlNombre').value=''; $('gwPlTexto').value=''; $('gwPlPrecio').value=''; if($('gwPlReps')) $('gwPlReps').innerHTML='';
   guardar(); gwRenderPlantillas(); gwRefrescarPlantSelects(); toast('Plantilla guardada.');
 }
-function gwEditarPlantilla(id){ const p=(db.gwmPlantillas||[]).find(x=>x.id===id); if(!p) return; $('gwPlId').value=p.id; $('gwPlNombre').value=p.nombre||''; $('gwPlTexto').value=p.texto||''; $('gwPlPrecio').value=p.precio||''; try{$('gwPlNombre').scrollIntoView({behavior:'smooth',block:'center'});}catch(e){} }
+function gwEditarPlantilla(id){ const p=(db.gwmPlantillas||[]).find(x=>x.id===id); if(!p) return; $('gwPlId').value=p.id; $('gwPlNombre').value=p.nombre||''; $('gwPlTexto').value=p.texto||''; $('gwPlPrecio').value=p.precio||''; if($('gwPlReps')){ $('gwPlReps').innerHTML=''; (p.repuestos||[]).forEach(gwPlAddRep); } try{$('gwPlNombre').scrollIntoView({behavior:'smooth',block:'center'});}catch(e){} }
 function gwBorrarPlantilla(id){ if(!confirm('¿Borrar esta plantilla?')) return; db.gwmPlantillas=(db.gwmPlantillas||[]).filter(x=>x.id!==id); guardar(); gwRenderPlantillas(); gwRefrescarPlantSelects(); }
 function gwRenderPlantillas(){
   const box=$('gwPlLista'); if(!box) return;
   const l=(db.gwmPlantillas||[]);
-  box.innerHTML = l.length ? l.map(p=>'<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--borde)"><div style="flex:1;min-width:0"><b style="font-size:13px">'+esc(p.nombre)+'</b><small style="display:block;color:var(--gris2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.texto||'')+(p.precio?(' · '+money(p.precio)):'')+'</small></div><button class="btn blanco mini" onclick="gwEditarPlantilla(\''+p.id+'\')">Editar</button> <button class="btn rojo mini" onclick="gwBorrarPlantilla(\''+p.id+'\')">×</button></div>').join('') : '<div class="vacio" style="padding:14px 0;color:var(--gris2);font-size:12px">Todavía no cargaste plantillas. Ej: nombre «Pre-entrega», texto «SERVICIO DE INSPECCION PRE ENTREGA E INSUMOS.», con su precio.</div>';
+  box.innerHTML = l.length ? l.map(p=>'<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--borde)"><div style="flex:1;min-width:0"><b style="font-size:13px">'+esc(p.nombre)+'</b><small style="display:block;color:var(--gris2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.texto||'')+(p.precio?(' · '+money(p.precio)):'')+((p.repuestos&&p.repuestos.length)?(' · '+p.repuestos.length+' repuesto'+(p.repuestos.length!==1?'s':'')):'')+'</small></div><button class="btn blanco mini" onclick="gwEditarPlantilla(\''+p.id+'\')">Editar</button> <button class="btn rojo mini" onclick="gwBorrarPlantilla(\''+p.id+'\')">×</button></div>').join('') : '<div class="vacio" style="padding:14px 0;color:var(--gris2);font-size:12px">Todavía no cargaste plantillas. Ej: nombre «Pre-entrega», texto «SERVICIO DE INSPECCION PRE ENTREGA E INSUMOS.», con su precio.</div>';
 }
 function gwRefrescarPlantSelects(){ [...document.querySelectorAll('.gw-plant')].forEach(s=>{ const v=s.value; s.innerHTML=gwPlantOptions(v); }); }
 function gwFiltrarCli(){
