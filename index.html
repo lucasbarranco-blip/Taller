@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08k plantilla-repuestos -->
+<!-- build 2026-08-08l cobro-parcial-pendientes -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1030,11 +1030,13 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
     <div class="m-cab"><h3>Registrar pago</h3><button class="cerrar" onclick="cerrar('vPago')">×</button></div>
     <div class="m-cuerpo">
       <p style="color:var(--gris);margin-bottom:14px" id="pagoInfo"></p>
-      <div class="grid2">
-        <div class="campo"><label>Monto</label><input type="number" id="cMonto" min="0"></div>
-        <div class="campo"><label>Medio de pago</label><select id="cMedio"><option>Efectivo</option><option>Transferencia</option><option>Débito</option><option>Crédito</option><option>MercadoPago</option><option>Cheque</option></select></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <label style="margin:0;font-size:12.5px;font-weight:700;color:var(--tinta)">Medios de pago</label>
+        <button class="btn blanco mini" onclick="pagoAddMedio()">+ Agregar medio</button>
       </div>
-      <p style="font-size:12px;color:var(--gris2)">Al confirmar, la orden pasa a <b>Pagado</b> y se descuenta el stock de los repuestos vinculados al inventario.</p>
+      <div id="pagoMedios"></div>
+      <div id="pagoResumen" style="margin-top:10px;font-size:12.5px;font-weight:600"></div>
+      <p style="font-size:12px;color:var(--gris2);margin-top:8px">Podés dividir el cobro en varios medios (ej. mitad transferencia, mitad efectivo). El <b>efectivo</b> entra a la <b>caja</b> y el resto al <b>banco</b>. Cada medio queda como un movimiento en el libro.</p>
     </div>
     <div class="foot-modal"><div class="der"><button class="btn verde" onclick="confirmarPago()">Confirmar pago</button></div></div>
   </div>
@@ -2656,7 +2658,7 @@ function renderInv(){
 }
 
 /* ================= FACTURACION ================= */
-let pagoOT=null, factOT=null;
+let pagoOT=null, factOT=null, pagoCtx=null;
 let socFact = '';
 const socDe = num => (num||'').slice(0,2);
 function setSocFact(s){
@@ -2705,12 +2707,13 @@ function renderFact(){
   const mes = hoy().slice(0,7);
   const enSoc = o => !socFact || o.soc===socFact;
   const pendPago = otsActivas().filter(o=>o.estado==='Entregado' && enSoc(o));
+  const pendTandas = (db.facturas||[]).filter(f=>f.tanda && !f.cobrado && (!socFact || f.soc===socFact));
   const pendFact = otsActivas().filter(o=>o.estado==='Pagado' && enSoc(o));
   const factsSoc = db.facturas.filter(f=>!socFact || socDe(f.ot)===socFact);
   const factMes = factsSoc.filter(f=>f.f.slice(0,7)===mes);
   const cobradoMes = db.pagos.filter(p=>(!socFact || socDe(p.ot)===socFact) && p.f.slice(0,7)===mes).reduce((a,p)=>a+p.monto,0);
   $('factKpis').innerHTML =
-    kpi('Pendiente de cobro', money(pendPago.reduce((a,o)=>a+totalesOT(o).venta,0)), pendPago.length+(pendPago.length!==1?' órdenes entregadas':' orden entregada'), '') +
+    kpi('Pendiente de cobro', money(pendPago.reduce((a,o)=>a+totalesOT(o).venta,0) + pendTandas.reduce((a,f)=>a+(f.monto||0),0)), (pendPago.length+pendTandas.length)+' pendiente'+((pendPago.length+pendTandas.length)!==1?'s':''), '') +
     kpi('Pendiente de facturar', pendFact.length, 'ya pagadas', 'acento') +
     kpi('Facturado este mes', money(factMes.reduce((a,f)=>a+f.monto,0)), factMes.length+(factMes.length!==1?' comprobantes':' comprobante'), '') +
     kpi('Cobrado este mes', money(cobradoMes), 'pagos registrados', 'verde');
@@ -2739,9 +2742,10 @@ function renderFact(){
         '<div style="font-size:10.5px;color:var(--gris2)">'+b.n+(b.n!==1?' órdenes':' orden')+'</div></div>').join('')+'</div>';
   }
 
-  const totPP = pendPago.reduce((a,o)=>a+totalesOT(o).venta,0);
-  $('resPendPago').innerHTML = pendPago.length ? '<b>'+money(totPP)+'</b><span>'+pendPago.length+(pendPago.length!==1?' órdenes':' orden')+'</span>' : '<span>Sin pendientes</span>';
-  $('tbPendPago').innerHTML = pendPago.length ? pendPago.map(o=>{
+  const totPP = pendPago.reduce((a,o)=>a+totalesOT(o).venta,0) + pendTandas.reduce((a,f)=>a+(f.monto||0),0);
+  const nPP = pendPago.length + pendTandas.length;
+  $('resPendPago').innerHTML = nPP ? '<b>'+money(totPP)+'</b><span>'+nPP+(nPP!==1?' pendientes':' pendiente')+'</span>' : '<span>Sin pendientes</span>';
+  const filasPendOT = pendPago.map(o=>{
     const t=totalesOT(o);
     const facturarBtn = o.facturada
       ? '<span class="chip sin" style="color:#136e4e;background:#d7efe3;margin-right:6px">Facturada ✓</span>'
@@ -2750,15 +2754,23 @@ function renderFact(){
     '<td><div class="persona"><div class="avatar">'+inic(o.cliente)+'</div><div>'+esc(o.cliente)+'<small>'+esc(o.veh||'')+' · '+(o.dominio||'—')+' · '+socNombre[o.soc]+'</small></div></div></td>'+
     '<td class="num">'+money(t.venta)+'</td>'+
     '<td style="text-align:right;width:230px;white-space:nowrap">'+facturarBtn+'<button class="btn verde mini" onclick="abrirPago(\''+o.id+'\')">Registrar pago</button></td></tr>';
-  }).join('') : '<tr><td colspan="4" class="vacio">No hay órdenes entregadas sin pago.<br><small style="font-weight:500">Pasá una orden a Entregado para que aparezca acá.</small></td></tr>';
+  }).join('');
+  const filasPendTanda = pendTandas.map(f=>
+    '<tr><td class="num" style="text-align:left;width:80px">PE</td>'+
+    '<td><div class="persona"><div class="avatar" style="background:#1c3f66">'+inic(f.cliente||'GWM')+'</div><div>'+esc(f.cliente||'—')+'<small>Pre-entrega GWM · '+esc(f.tipo||'')+(f.nro?' '+esc(f.nro):'')+' · '+(socNombre[f.soc]||'—')+'</small></div></div></td>'+
+    '<td class="num">'+money(f.monto||0)+'</td>'+
+    '<td style="text-align:right;width:230px;white-space:nowrap"><button class="btn fantasma mini" onclick="pdfFactura(\''+f.id+'\',\''+f.ot+'\')">PDF</button> <button class="btn verde mini" onclick="abrirCobroTanda(\''+f.id+'\')">Registrar cobro</button></td></tr>'
+  ).join('');
+  $('tbPendPago').innerHTML = (filasPendOT+filasPendTanda) || '<tr><td colspan="4" class="vacio">No hay órdenes entregadas sin pago.<br><small style="font-weight:500">Pasá una orden a Entregado para que aparezca acá.</small></td></tr>';
 
-  const totPF = pendFact.reduce((a,o)=>{ const pg=[...db.pagos].reverse().find(p=>p.ot===o.numero)||{}; return a+(pg.monto||totalesOT(o).venta); },0);
+  const pagoTotOT = o => { const ps=db.pagos.filter(p=>p.ot===o.numero); return ps.length ? ps.reduce((s,p)=>s+(p.monto||0),0) : totalesOT(o).venta; };
+  const medioTxtOT = o => { const ps=db.pagos.filter(p=>p.ot===o.numero); if(!ps.length) return '—'; const ms=[...new Set(ps.map(p=>p.medio).filter(Boolean))]; return ms.length>1 ? ('Varios ('+ms.join(' + ')+')') : (ms[0]||'—'); };
+  const totPF = pendFact.reduce((a,o)=>a+pagoTotOT(o),0);
   $('resPendFact').innerHTML = pendFact.length ? '<b>'+money(totPF)+'</b><span>'+pendFact.length+(pendFact.length!==1?' órdenes':' orden')+'</span>' : '<span>Sin pendientes</span>';
   $('tbPendFact').innerHTML = pendFact.length ? pendFact.map(o=>{
-    const pago = [...db.pagos].reverse().find(p=>p.ot===o.numero) || {};
     return '<tr><td class="num" style="text-align:left;width:80px">'+o.numero+'</td><td>'+esc(o.cliente)+'</td>'+
-    '<td>'+fFecha(o.fechaPago)+'<small style="display:block;color:var(--gris2);font-size:11px">'+esc(pago.medio||'—')+'</small></td>'+
-    '<td class="num">'+money(pago.monto||totalesOT(o).venta)+'</td>'+
+    '<td>'+fFecha(o.fechaPago)+'<small style="display:block;color:var(--gris2);font-size:11px">'+esc(medioTxtOT(o))+'</small></td>'+
+    '<td class="num">'+money(pagoTotOT(o))+'</td>'+
     '<td style="text-align:right;width:110px"><button class="btn mini" onclick="abrirFacturar(\''+o.id+'\')">Facturar</button></td></tr>';
   }).join('') : '<tr><td colspan="5" class="vacio">Nada pendiente de facturar.<br><small style="font-weight:500">Las órdenes cobradas aparecen acá hasta que emitas el comprobante.</small></td></tr>';
 
@@ -2804,31 +2816,77 @@ function aplicarLapsoOT(){
   $('fOTdesde').value=r[0]; $('fOThasta').value=r[1];
   renderOTs();
 }
+function pagoMedioOptions(sel){
+  return ['Efectivo','Transferencia','Débito','Crédito','MercadoPago','Cheque'].map(m=>'<option'+(m===sel?' selected':'')+'>'+m+'</option>').join('');
+}
+function pagoAddMedio(data){
+  data=data||{};
+  const d=document.createElement('div');
+  d.className='pagorow';
+  d.style.cssText='display:grid;grid-template-columns:1fr 130px 28px;gap:8px;margin-bottom:6px;align-items:center';
+  d.innerHTML=
+    '<select class="pm-medio" onchange="pagoCalc()">'+pagoMedioOptions(data.medio||'Efectivo')+'</select>'+
+    '<input class="pm-monto" type="number" min="0" placeholder="0" value="'+(data.monto!=null&&data.monto!==''?data.monto:'')+'" oninput="pagoCalc()">'+
+    '<button class="quitar" title="Quitar" onclick="this.parentElement.remove();pagoCalc()">×</button>';
+  $('pagoMedios').appendChild(d);
+  pagoCalc();
+}
+function pagoLeerMedios(){
+  if(!$('pagoMedios')) return [];
+  return [...$('pagoMedios').querySelectorAll('.pagorow')].map(r=>({ medio:r.querySelector('.pm-medio').value, monto:+r.querySelector('.pm-monto').value||0 })).filter(x=>x.monto>0);
+}
+function pagoCalc(){
+  const ms=pagoLeerMedios(), suma=ms.reduce((a,m)=>a+m.monto,0), total=+((pagoCtx&&pagoCtx.total)||0), dif=Math.round(total-suma);
+  let html='Total ingresado: <b>'+money(suma)+'</b>';
+  if(total){ html+=' <span style="color:var(--gris2);font-weight:500">/ a cobrar '+money(total)+'</span>'; if(Math.abs(dif)>=1) html+=' · <span style="color:'+(dif>0?'#a16207':'#c2372e')+'">'+(dif>0?('faltan '+money(dif)):('sobran '+money(-dif)))+'</span>'; else html+=' · <span style="color:#0e8a5f">✓ coincide</span>'; }
+  if($('pagoResumen')) $('pagoResumen').innerHTML=html;
+}
 function abrirPago(id){
   pagoOT = db.ots.find(o=>o.id===id);
+  pagoCtx = { tipo:'ot', ot:pagoOT, total:totalesOT(pagoOT).venta };
   $('pagoInfo').innerHTML = '<b>'+pagoOT.numero+'</b> · '+esc(pagoOT.cliente)+' · '+esc(pagoOT.veh)+' '+pat(pagoOT.dominio);
-  $('cMonto').value = totalesOT(pagoOT).venta;
+  $('pagoMedios').innerHTML=''; pagoAddMedio({ medio:'Efectivo', monto:pagoCtx.total });
+  $('vPago').classList.add('on');
+}
+function abrirCobroTanda(fid){
+  const f=(db.facturas||[]).find(x=>x.id===fid); if(!f || f.cobrado) return;
+  pagoCtx = { tipo:'tanda', fact:f, total:f.monto||0 };
+  $('pagoInfo').innerHTML = '<b>'+esc(f.tipo||'Factura')+(f.nro?' '+esc(f.nro):'')+'</b> · '+esc(f.cliente||'')+' · Pre-entrega GWM';
+  $('pagoMedios').innerHTML=''; pagoAddMedio({ medio:'Efectivo', monto:pagoCtx.total });
   $('vPago').classList.add('on');
 }
 function confirmarPago(){
+  const medios=pagoLeerMedios();
+  if(!medios.length) return toast('Cargá al menos un medio con su monto.');
+  const suma=medios.reduce((a,m)=>a+m.monto,0), total=+((pagoCtx&&pagoCtx.total)||0);
+  if(total && Math.abs(total-suma)>=1 && !confirm('El total de los medios ('+money(suma)+') no coincide con el monto a cobrar ('+money(total)+').\n\n¿Registrar igual?')) return;
+  if(pagoCtx && pagoCtx.tipo==='tanda'){
+    const f=pagoCtx.fact;
+    medios.forEach(m=>db.pagos.push({ id:uid(), f:hoy(), ot:f.ot, cliente:f.cliente||'', medio:m.medio, monto:m.monto }));
+    f.cobrado=true; f.fcobro=hoy(); f.medioCobro=medios.map(m=>m.medio).join(' + ');
+    guardar(); render(); if(typeof gwRenderTandas==='function') gwRenderTandas(); cerrar('vPago');
+    toast('Cobro registrado. Entró al libro contable.');
+    return;
+  }
+  const ot=pagoCtx?pagoCtx.ot:pagoOT;
   let faltantes = [];
-  (pagoOT.items||[]).forEach(it=>{
+  (ot.items||[]).forEach(it=>{
     if(!it.invId) return;
     const p = db.inv.find(i=>i.id===it.invId); if(!p) return;
     if(p.stock < it.cant) faltantes.push(p.sku+' (stock '+p.stock+', necesita '+it.cant+')');
   });
   if(faltantes.length && !confirm('Stock insuficiente en: '+faltantes.join(', ')+'. ¿Registrar el pago igual y dejar el stock en 0?')) return;
-  (pagoOT.items||[]).forEach(it=>{
+  (ot.items||[]).forEach(it=>{
     if(!it.invId) return;
     const p = db.inv.find(i=>i.id===it.invId); if(!p) return;
     const egr = Math.min(p.stock, it.cant);
-    if(egr>0){ p.stock -= egr; db.movs.push({ id:uid(), f:hoy(), tipo:'Egreso', sku:p.sku, prod:p.prod, cant:egr, ref:'Venta '+pagoOT.numero }); }
+    if(egr>0){ p.stock -= egr; db.movs.push({ id:uid(), f:hoy(), tipo:'Egreso', sku:p.sku, prod:p.prod, cant:egr, ref:'Venta '+ot.numero }); }
   });
-  pagoOT.fechaPago = hoy();
-  pagoOT.estado = pagoOT.facturada ? 'Facturado' : 'Pagado'; // si ya se había facturado, no vuelve a «pendiente de facturar»
-  db.pagos.push({ id:uid(), f:hoy(), ot:pagoOT.numero, cliente:pagoOT.cliente, medio:$('cMedio').value, monto:+$('cMonto').value||0 });
+  ot.fechaPago = hoy();
+  ot.estado = ot.facturada ? 'Facturado' : 'Pagado';
+  medios.forEach(m=>db.pagos.push({ id:uid(), f:hoy(), ot:ot.numero, cliente:ot.cliente, medio:m.medio, monto:m.monto }));
   guardar(); render(); cerrar('vPago');
-  toast(pagoOT.facturada ? 'Pago registrado. La orden ya estaba facturada; podés terminarla desde el historial.' : 'Pago registrado. Ahora podés facturar la orden.');
+  toast(ot.facturada ? 'Pago registrado. La orden ya estaba facturada; podés terminarla desde el historial.' : 'Pago registrado. Ahora podés facturar la orden.');
 }
 function construirLineasFactura(factOT, ivaDefE){
   const tSnap=totalesOT(factOT);
@@ -3141,14 +3199,7 @@ function gwRenderTandas(){
     return '<tr><td>'+fFecha(f.f)+'</td><td>'+esc(f.cliente||'—')+'</td><td style="font-size:12px">'+esc(f.tipo||'')+'<small style="display:block;color:var(--gris2)">'+esc(f.nro||'')+'</small></td><td class="num">'+money(f.monto)+'</td><td style="white-space:nowrap;text-align:right"><button class="btn fantasma mini" onclick="pdfFactura(\''+f.id+'\',\''+f.ot+'\')">PDF</button> '+cobr+'</td></tr>';
   }).join('') : '<tr><td colspan="5" class="vacio">Todavía no emitiste facturas en tanda para esta sociedad.</td></tr>';
 }
-function gwCobrar(fid){
-  const f=(db.facturas||[]).find(x=>x.id===fid); if(!f || f.cobrado) return;
-  pedirMedio('Cobro de '+(f.tipo||'factura')+' '+(f.nro||'')+' · '+(f.cliente||''), (m)=>{
-    f.cobrado=true; f.fcobro=hoy(); f.medioCobro=m;
-    db.pagos.push({ id:uid(), f:hoy(), ot:f.ot, cliente:f.cliente||'', medio:m, monto:f.monto||0 });
-    guardar(); render(); gwRenderTandas(); toast('Cobro registrado. Entró al libro contable.');
-  });
-}
+function gwCobrar(fid){ abrirCobroTanda(fid); }
 
 /* ================= TURNOS ================= */
 let mesCal = new Date(); mesCal.setDate(1);
