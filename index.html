@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08l cobro-parcial-pendientes -->
+<!-- build 2026-08-08m ctacte-vehiculos-percep -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -720,7 +720,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
   <div class="toolbar"><div class="f crecer"><label>Buscar</label><input id="fCliQ" placeholder="Nombre, celular, mail, vehículo, dominio…" oninput="renderClientes()"></div></div>
   <div class="panelbox"><div class="scrollx">
     <table>
-      <thead><tr><th>Cliente</th><th class="num">Autos</th><th class="num">Órdenes</th><th>Última orden</th><th class="num">Venta total</th><th></th></tr></thead>
+      <thead><tr><th>Cliente</th><th class="num">Autos</th><th class="num">Órdenes</th><th>Última orden</th><th class="num">Venta total</th><th class="num">Saldo</th><th></th></tr></thead>
       <tbody id="tbClientes"></tbody>
     </table>
   </div></div>
@@ -1290,6 +1290,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div class="campo" style="margin:0"><label>Percep. IIBB %</label><input type="number" id="pPercepPct" min="0" step="any" placeholder="0" oninput="calcPercep()" title="% de percepción de Ingresos Brutos que te cobra el proveedor"></div>
         <div class="campo" style="margin:0"><label>Percep. IIBB $</label><input type="number" id="pPercepMonto" placeholder="0" oninput="actualizarTotalProv()" title="Monto de la percepción (se calcula solo, ajustable). Se suma al total."></div>
       </div>
+      <div id="pPercepBase" style="font-size:11px;color:var(--gris2);margin:2px 2px 6px"></div>
       <div id="pTotalReal" style="font-size:12px;font-weight:700;color:var(--primario);margin:-4px 2px 8px"></div>
       <div class="seccion" style="margin-bottom:0">
         <h4>¿Qué compraste en esta factura?</h4>
@@ -1360,6 +1361,11 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div class="itemcli itemhead"><div>Vehículo</div><div>Dominio</div><div>KM</div><div>Nº chasis</div><div>Nº motor</div><div></div></div>
         <div id="cliAutos"></div>
         <button class="btn blanco mini" onclick="agregarAuto()">+ Agregar vehículo</button>
+      </div>
+      <div class="seccion" style="margin:0 0 11px" id="cliCtaCteBox">
+        <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Cuenta corriente</h4>
+        <div id="cliCtaKpis" style="margin-bottom:10px"></div>
+        <div class="scrollx" id="cliCtaMovs"></div>
       </div>
       <div class="seccion" style="margin:0" id="cliHistBox">
         <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Historial de órdenes</h4>
@@ -2481,8 +2487,10 @@ function pintarTipoComp(){
 function calcPercep(){
   const total=+$('pTotal').value||0, iva=+$('pIva').value||0, pct=+$('pPercepPct').value||0;
   // La percepción se calcula sobre el neto gravado (total sin IVA) y se suma por fuera del total.
-  if(pct && total){ const neto=total/(1 + iva/100); $('pPercepMonto').value=Math.round(neto*pct/100); }
+  const neto = total/(1 + iva/100);
+  if(pct && total){ $('pPercepMonto').value=Math.round(neto*pct/100); }
   else if(!pct){ $('pPercepMonto').value=''; }
+  if($('pPercepBase')) $('pPercepBase').innerHTML = total ? ('Base de la percepci\u00f3n (neto s/IVA): <b>'+money(Math.round(neto))+'</b>'+(pct?(' · '+pct+'% = <b>'+money(Math.round(neto*pct/100))+'</b>'):'')) : '';
   actualizarTotalProv();
 }
 // Muestra el total real (mercadería + percepción) como ayuda debajo de los campos
@@ -3058,6 +3066,7 @@ function gwAddLinea(data){
       '<input class="gw-precio" type="number" min="0" placeholder="0" value="'+(data.precio!=null&&data.precio!==''?data.precio:'')+'" oninput="gwCalcTotal()">'+
       '<button class="btn rojo mini" onclick="gwDelLinea(this)" title="Quitar" style="font-weight:700">×</button>'+
     '</div>'+
+    '<div style="margin-top:6px"><select class="gw-vehsel" onchange="gwAplicarVeh(this)" style="width:100%;font-size:12px;color:var(--gris)">'+gwVehOptions()+'</select></div>'+
     '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px">'+
       '<input class="gw-anio" placeholder="Año" value="'+esc(data.anio||'')+'" style="font-size:12px">'+
       '<input class="gw-patente" placeholder="Patente" value="'+esc(data.patente||'')+'" style="text-transform:uppercase;font-size:12px">'+
@@ -3068,6 +3077,28 @@ function gwAddLinea(data){
   gwCalcTotal();
 }
 function gwDelLinea(btn){ const r=btn.closest('.gwrow'); if(r) r.remove(); if($('gwLineas').children.length===0) gwAddLinea(); gwCalcTotal(); }
+function gwClienteVehiculos(){
+  const id=$('gwCliId')?$('gwCliId').value:''; if(!id) return [];
+  const c=db.clientes.find(x=>x.id===id); if(!c) return [];
+  const out=[], seen=new Set();
+  const push=(veh,dom,km,chasis,motor)=>{ if(!((veh||'').trim()||(dom||'').trim()||(chasis||'').trim())) return; const key=((chasis||'')+'|'+(dom||'')+'|'+(veh||'')).toUpperCase(); if(seen.has(key)) return; seen.add(key); out.push({modelo:(veh||'').trim(),patente:(dom||'').trim(),km:(km||'').toString().trim(),chasis:(chasis||'').trim(),motor:(motor||'').trim()}); };
+  (c.autos||[]).forEach(a=>push(a.veh,a.dominio,a.km,a.chasis,a.motor));
+  (typeof otsDeCliente==='function'?otsDeCliente(c):[]).forEach(o=>push(o.veh,o.dominio,o.km,o.chasis,o.motor));
+  return out;
+}
+function gwVehOptions(){
+  const vs=gwClienteVehiculos();
+  if(!vs.length) return '<option value="">— eleg\u00ed un cliente para ver sus veh\u00edculos —</option>';
+  return '<option value="">— Veh\u00edculo del cliente (autocompletar) —</option>'+vs.map((v,i)=>'<option value="'+i+'">'+esc([v.modelo,v.patente,v.chasis].filter(Boolean).join(' · ')||'(sin datos)')+'</option>').join('');
+}
+function gwRefrescarVehSelects(){ [...document.querySelectorAll('.gw-vehsel')].forEach(sel=>{ sel.innerHTML=gwVehOptions(); }); }
+function gwAplicarVeh(sel){
+  const vs=gwClienteVehiculos(); const v=vs[+sel.value]; if(!v) return;
+  const row=sel.closest('.gwrow'); if(!row) return;
+  const set=(cls,val)=>{ const el=row.querySelector(cls); if(el && val) el.value=val; };
+  set('.gw-chasis',v.chasis); set('.gw-modelo',v.modelo); set('.gw-patente',v.patente); set('.gw-km',v.km); set('.gw-motor',v.motor);
+  gwCalcTotal();
+}
 function gwAplicarPlant(sel){
   const p=(db.gwmPlantillas||[]).find(x=>x.id===sel.value); if(!p) return;
   const row=sel.closest('.gwrow');
@@ -3141,7 +3172,7 @@ function gwFiltrarCli(){
   d.hidden=false;
 }
 function gwCliDropHide(){ setTimeout(()=>{ if($('gwCliDrop')) $('gwCliDrop').hidden=true; }, 180); }
-function gwElegirCli(id){ const c=db.clientes.find(x=>x.id===id); if(!c) return; $('gwCliId').value=c.id; $('gwCliente').value=c.nombre||''; if($('gwCliDrop')) $('gwCliDrop').hidden=true; gwPintarCliHint(); }
+function gwElegirCli(id){ const c=db.clientes.find(x=>x.id===id); if(!c) return; $('gwCliId').value=c.id; $('gwCliente').value=c.nombre||''; if($('gwCliDrop')) $('gwCliDrop').hidden=true; gwPintarCliHint(); gwRefrescarVehSelects(); }
 function gwPintarCliHint(){
   const h=$('gwCliHint'); if(!h) return;
   const c=$('gwCliId').value&&db.clientes.find(x=>x.id===$('gwCliId').value);
@@ -4467,6 +4498,47 @@ function autofillCliente(){
   if(!$('otEmail').value) $('otEmail').value=c.email||'';
   cargarAutosCliente(c);
 }
+function _normNom(x){ return (x||'').trim().toLowerCase(); }
+function docEsDeCliente(otNum, nombre, c){
+  if(otNum){ const o=db.ots.find(x=>x.numero===otNum); if(o && o.clienteId && o.clienteId===c.id) return true; }
+  const names=[_normNom(c.nombre), _normNom(c.razon)].filter(Boolean);
+  return names.indexOf(_normNom(nombre))>=0;
+}
+function ctaCteCliente(c){
+  const facts=(db.facturas||[]).filter(f=>docEsDeCliente(f.ot, f.cliente, c));
+  const pays=(db.pagos||[]).filter(p=>docEsDeCliente(p.ot, p.cliente, c));
+  const facturado=facts.filter(f=>!f.esNC && (f.monto||0)>0).reduce((a,f)=>a+(f.monto||0),0);
+  const nc=facts.filter(f=>f.esNC || (f.monto||0)<0).reduce((a,f)=>a+Math.abs(f.monto||0),0);
+  const cobrado=pays.reduce((a,p)=>a+(p.monto||0),0);
+  const saldo=facturado-nc-cobrado;
+  const hoyS=hoy(), grupos={};
+  facts.forEach(f=>{ const k=f.ot||('f'+f.id); grupos[k]=grupos[k]||{neto:0,vto:''}; grupos[k].neto+=(f.monto||0); const vto=(f.arcaData&&f.arcaData.periodo&&f.arcaData.periodo.vto)||f.f||''; if(vto>grupos[k].vto) grupos[k].vto=vto; });
+  pays.forEach(p=>{ const k=p.ot||''; if(grupos[k]) grupos[k].neto-=(p.monto||0); });
+  let vencido=0; Object.keys(grupos).forEach(k=>{ const g=grupos[k]; if(g.neto>0.5 && g.vto && g.vto<hoyS) vencido+=g.neto; });
+  const movs=[];
+  facts.forEach(f=>movs.push({f:f.f, tipo:(f.esNC||(f.monto||0)<0)?'Nota de cr\u00e9dito':(f.tipo||'Factura'), nro:f.nro||'', det:(f.ot||''), monto:(f.monto||0)}));
+  pays.forEach(p=>movs.push({f:p.f, tipo:'Cobro', nro:'', det:((p.medio||'')+(p.ot?(' · '+p.ot):'')), monto:-(p.monto||0)}));
+  movs.sort((a,b)=>((a.f||'').localeCompare(b.f||''))||((a.monto<0?1:0)-(b.monto<0?1:0)));
+  let run=0; movs.forEach(m=>{ run+=m.monto; m.saldo=run; });
+  return { facturado, nc, cobrado, saldo, vencido, movs };
+}
+function pintarCtaCte(c){
+  const box=$('cliCtaCteBox'); if(!box) return;
+  if(!c){ box.hidden=true; return; }
+  box.hidden=false;
+  const r=ctaCteCliente(c);
+  $('cliCtaKpis').innerHTML = '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--gris);font-weight:600">'+
+    '<span>Facturado <b style="font-family:var(--mono);color:var(--tinta)">'+money(r.facturado)+'</b></span>'+
+    '<span>Notas de cr\u00e9dito <b style="font-family:var(--mono);color:#0e8a5f">−'+money(r.nc)+'</b></span>'+
+    '<span>Cobrado <b style="font-family:var(--mono);color:#0e8a5f">'+money(r.cobrado)+'</b></span>'+
+    '<span>Saldo <b style="font-family:var(--mono);color:'+(r.saldo>0.5?'var(--rojo)':'var(--ok)')+'">'+money(r.saldo)+'</b></span>'+
+    '<span>Vencido <b style="font-family:var(--mono);color:'+(r.vencido>0.5?'var(--rojo)':'var(--ok)')+'">'+money(r.vencido)+'</b></span>'+
+  '</div>';
+  $('cliCtaMovs').innerHTML = r.movs.length
+    ? '<table><thead><tr><th>Fecha</th><th>Comprobante</th><th>Detalle</th><th class="num">Importe</th><th class="num">Saldo</th></tr></thead><tbody>'+
+      r.movs.slice().reverse().map(m=>{ const neg=m.monto<0; return '<tr><td>'+fFecha(m.f)+'</td><td>'+esc(m.tipo)+(m.nro?'<small style="display:block;color:var(--gris2);font-size:11px">'+esc(m.nro)+'</small>':'')+'</td><td style="font-size:12px;color:var(--gris)">'+esc(m.det||'—')+'</td><td class="num" style="color:'+(neg?'#0e8a5f':'var(--tinta)')+'">'+(neg?'−':'')+money(Math.abs(m.monto))+'</td><td class="num" style="font-weight:700;color:'+(m.saldo>0.5?'var(--tinta)':'var(--ok)')+'">'+money(m.saldo)+'</td></tr>'; }).join('')+'</tbody></table>'
+    : '<div class="vacio" style="padding:14px 0">Sin comprobantes todav\u00eda.</div>';
+}
 function renderClientes(){
   if(!$('tbClientes')) return;
   const q=($('fCliQ')?$('fCliQ').value:'').toLowerCase();
@@ -4476,11 +4548,13 @@ function renderClientes(){
     const ots=otsDeCliente(c);
     const venta=ots.reduce((a,o)=>a+totalesOT(o).venta,0);
     const ult=ots.map(o=>o.fecha).filter(Boolean).sort().reverse()[0];
+    const cc=ctaCteCliente(c);
     return '<tr>'+
       '<td><div class="persona"><div class="avatar">'+inic(c.nombre)+'</div><div>'+esc(c.nombre)+'<small>'+esc(c.celu||'')+(c.email?' · '+esc(c.email):'')+'</small></div></div></td>'+
       '<td class="num">'+(c.autos?c.autos.length:0)+'</td><td class="num">'+ots.length+'</td><td>'+fFecha(ult)+'</td><td class="num">'+money(venta)+'</td>'+
+      '<td class="num" style="font-weight:700;color:'+(cc.saldo>0.5?'var(--rojo)':'var(--ok)')+'">'+money(cc.saldo)+(cc.vencido>0.5?'<small style="display:block;color:var(--rojo);font-size:10px;font-weight:700">venc. '+money(cc.vencido)+'</small>':'')+'</td>'+
       '<td style="white-space:nowrap;text-align:right"><button class="btn blanco mini" onclick="abrirCliente(\''+c.id+'\')">Ver ficha</button></td></tr>';
-  }).join('') : '<tr><td colspan="6" class="vacio">Todavía no hay clientes. Se cargan solos al crear órdenes, o agregá uno con “+ Nuevo cliente”.</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="vacio">Todavía no hay clientes. Se cargan solos al crear órdenes, o agregá uno con “+ Nuevo cliente”.</td></tr>';
 }
 let cliEdit=null;
 function abrirCliente(id){
@@ -4492,6 +4566,7 @@ function abrirCliente(id){
   $('cliAutos').innerHTML='';
   (c.autos && c.autos.length ? c.autos : [null]).forEach(agregarAuto);
   pintarHistCliente(cliEdit);
+  pintarCtaCte(cliEdit);
   $('vCliente').classList.add('on');
 }
 function agregarAuto(a){
