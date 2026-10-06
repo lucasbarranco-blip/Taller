@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08n nc-netea-vencido -->
+<!-- build 2026-08-08o recuadro-chico -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -916,7 +916,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div id="otItems"></div>
         <button class="btn blanco mini" onclick="agregarItem()">+ Agregar repuesto</button>
         <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12.5px;font-weight:600;color:var(--tinta);cursor:pointer"><input type="checkbox" id="otDetalleRep" onchange="toggleDetalleRep()" style="width:auto;margin:0"> Detallar cada repuesto con su precio en el presupuesto del cliente</label>
-        <div id="otRepVentaWrap" style="display:grid;grid-template-columns:1fr 240px;gap:14px;align-items:end;margin-top:14px;border-top:1px dashed var(--borde2);padding-top:12px">
+        <div id="otRepVentaWrap" style="display:grid;grid-template-columns:1fr 150px;gap:14px;align-items:end;margin-top:14px;border-top:1px dashed var(--borde2);padding-top:12px">
           <div style="font-size:11.5px;color:var(--gris);line-height:1.5">Los costos de arriba son internos (lo que gastaste). Costo de repuestos: <b id="otRepCosto" style="font-family:var(--mono);color:var(--tinta)">$0</b>.<br>A la derecha ponés el <b>total que le cobrás al cliente</b> por repuestos e insumos (es lo único que ve el cliente).</div>
           <div class="campo" style="margin:0"><label>Total repuestos e insumos (cliente)</label><input type="number" id="otRepVenta" min="0" value="0" oninput="calcOT()" style="font-weight:700"></div>
         </div>
