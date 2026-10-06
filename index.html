@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08m ctacte-vehiculos-percep -->
+<!-- build 2026-08-08n nc-netea-vencido -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2552,7 +2552,9 @@ function renderProvCC(){
     const facturado=fs.reduce((a,p)=>a+montoProvSigned(p),0);
     const saldo=pend.reduce((a,p)=>a+montoProvSigned(p),0);
     const vencidas=pend.filter(p=>p.venc&&p.venc<hoy()&&!esNotaCredProv(p));
-    const vencido=vencidas.reduce((a,p)=>a+montoProvSigned(p),0);
+    const vencidoBruto=vencidas.reduce((a,p)=>a+montoProvSigned(p),0);
+    const creditoNC=pend.filter(p=>esNotaCredProv(p)).reduce((a,p)=>a+Math.abs(montoProvSigned(p)),0);
+    const vencido=Math.max(0, vencidoBruto-creditoNC);
     const prox=pend.filter(p=>p.venc).map(p=>p.venc).sort()[0];
     const gid='cc_'+ix;
     if(ccAbiertos.size===0 && claves.length===1) ccAbiertos.add(gid);
@@ -4514,7 +4516,9 @@ function ctaCteCliente(c){
   const hoyS=hoy(), grupos={};
   facts.forEach(f=>{ const k=f.ot||('f'+f.id); grupos[k]=grupos[k]||{neto:0,vto:''}; grupos[k].neto+=(f.monto||0); const vto=(f.arcaData&&f.arcaData.periodo&&f.arcaData.periodo.vto)||f.f||''; if(vto>grupos[k].vto) grupos[k].vto=vto; });
   pays.forEach(p=>{ const k=p.ot||''; if(grupos[k]) grupos[k].neto-=(p.monto||0); });
-  let vencido=0; Object.keys(grupos).forEach(k=>{ const g=grupos[k]; if(g.neto>0.5 && g.vto && g.vto<hoyS) vencido+=g.neto; });
+  let vencidoBruto=0, creditos=0;
+  Object.keys(grupos).forEach(k=>{ const g=grupos[k]; if(g.neto>0.5){ if(g.vto && g.vto<hoyS) vencidoBruto+=g.neto; } else if(g.neto<-0.5){ creditos+=(-g.neto); } });
+  const vencido=Math.max(0, vencidoBruto-creditos);
   const movs=[];
   facts.forEach(f=>movs.push({f:f.f, tipo:(f.esNC||(f.monto||0)<0)?'Nota de cr\u00e9dito':(f.tipo||'Factura'), nro:f.nro||'', det:(f.ot||''), monto:(f.monto||0)}));
   pays.forEach(p=>movs.push({f:p.f, tipo:'Cobro', nro:'', det:((p.medio||'')+(p.ot?(' · '+p.ot):'')), monto:-(p.monto||0)}));
