@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08q filtro-pendientes -->
+<!-- build 2026-08-08r facturar-orden-buscador -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -498,6 +498,14 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <button id="fsTQ" onclick="setSocFact('TQ')">Terra Quattro</button>
     </div></div>
   <div class="kpis" id="factKpis"></div>
+
+  <div class="panelbox" style="margin-bottom:18px">
+    <div class="cab-box"><div><h3>Facturar una orden</h3><span style="display:block;font-size:11px;color:var(--gris2);margin-top:1px;font-weight:500">Buscá cualquier orden por número, cliente o dominio y emití su factura (con ARCA) sin entrar a la web de ARCA. Sirve cuando el cliente pagó y después te pide la factura.</span></div></div>
+    <div style="padding:14px 18px;position:relative">
+      <input id="factBuscarInput" autocomplete="off" oninput="facturarBuscar()" onfocus="facturarBuscar()" onblur="facturarBuscarHide()" placeholder="N\u00famero de orden, cliente o dominio\u2026" style="width:100%;max-width:520px;padding:10px 12px;border:1px solid var(--borde);border-radius:9px;font-size:13px">
+      <div id="factBuscarDrop" class="combo-drop" hidden style="max-width:520px"></div>
+    </div>
+  </div>
 
   <div class="panelbox" id="boxPreentregas" style="margin-bottom:18px">
     <div class="cab-box" style="flex-wrap:wrap;gap:8px"><div><h3>Preentregas y cobros por fuera</h3><span style="display:block;font-size:11px;color:var(--gris2);margin-top:1px;font-weight:500">Trabajos sin cliente (0km a entregar, etc.) que facturás aparte. Al marcarlos cobrados entran al libro contable.</span></div><div id="prePendTot" style="font-family:var(--mono);font-weight:700;color:var(--rojo)"></div></div>
@@ -2945,6 +2953,29 @@ function construirLineasFactura(factOT, ivaDefE){
     if(tSnap.mo>0) lineasSnap.push({ desc:((moDetInc&&factOT.moDet)?('Mano de obra — '+factOT.moDet):'Mano de obra'), cant:1, unidad:'unidades', precio:tSnap.mo, iva:ivaDefE });
   }
   return lineasSnap;
+}
+function facturarBuscar(){
+  const d=$('factBuscarDrop'); if(!d) return;
+  const q=($('factBuscarInput')?$('factBuscarInput').value:'').trim().toLowerCase();
+  let l=(db.ots||[]).filter(o=>!o.archivada);
+  if(typeof socFact!=='undefined' && socFact) l=l.filter(o=>o.soc===socFact);
+  if(q) l=l.filter(o=>((o.numero||'')+' '+(o.cliente||'')+' '+(o.veh||'')+' '+(o.dominio||'')).toLowerCase().includes(q));
+  l=l.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).slice(0,10);
+  d.innerHTML = l.length ? l.map(o=>{
+    const yaFact=(db.facturas||[]).some(ff=>ff.ot===o.numero && !ff.esNC);
+    const t=totalesOT(o);
+    return '<div class="op" onmousedown="event.preventDefault()" onclick="facturarOTelegida(\''+o.id+'\')"><div class="avatar">'+inic(o.cliente)+'</div><div style="flex:1;min-width:0"><b>'+esc(o.numero)+' \u00b7 '+esc(o.cliente||'\u2014')+'</b><small>'+esc(o.veh||'')+(o.dominio?(' \u00b7 '+esc(o.dominio)):'')+' \u00b7 '+money(t.venta)+' \u00b7 '+chip(o.estado)+(yaFact?' <span style="color:var(--rojo);font-weight:700">ya facturada</span>':'')+'</small></div></div>';
+  }).join('') : '<div class="vacio2">Sin coincidencias.</div>';
+  d.hidden=false;
+}
+function facturarBuscarHide(){ setTimeout(()=>{ if($('factBuscarDrop')) $('factBuscarDrop').hidden=true; }, 180); }
+function facturarOTelegida(id){
+  if($('factBuscarDrop')) $('factBuscarDrop').hidden=true;
+  if($('factBuscarInput')) $('factBuscarInput').value='';
+  const o=db.ots.find(x=>x.id===id); if(!o) return;
+  const yaFact=(db.facturas||[]).some(ff=>ff.ot===o.numero && !ff.esNC);
+  if(yaFact && !confirm('La orden '+o.numero+' ya tiene una factura emitida.\n\n\u00bfQuer\u00e9s emitir otra igual? (Si anulaste la anterior con una Nota de Cr\u00e9dito, cerr\u00e1 esto y us\u00e1 \u00abRe-facturar\u00bb desde el historial.)')) return;
+  abrirFacturar(id);
 }
 function abrirFacturar(id){
   factOT = db.ots.find(o=>o.id===id);
