@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08p adelanto-en-orden -->
+<!-- build 2026-08-08q filtro-pendientes -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -529,6 +529,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
       <div class="paso-box-cab">
         <div class="paso-num azul">1</div>
         <div><h3>Pendientes de pago</h3><span class="desc">Órdenes entregadas esperando el cobro</span></div>
+        <select id="pendFiltro" onchange="setPendFiltro(this.value)" style="margin-left:auto;margin-right:10px;padding:5px 8px;border:1px solid var(--borde);border-radius:8px;font-size:12px;font-weight:600;background:#fff;color:var(--gris)"><option value="todos">Todos</option><option value="ot">Órdenes del taller</option><option value="gwm">Pre-entregas GWM</option></select>
         <div class="paso-tot" id="resPendPago"></div>
       </div>
       <div class="scrollx"><table>
@@ -2712,6 +2713,8 @@ function renderPreentregas(){
       '<td style="white-space:nowrap;text-align:right"><button class="btn blanco mini" onclick="toggleCobradoPre(\''+p.id+'\')">'+(p.cobrado?'→ Pendiente':'✓ Cobrado')+'</button> <button class="btn blanco mini" onclick="editarPreentrega(\''+p.id+'\')">Editar</button> <button class="btn rojo mini" onclick="borrarPreentrega(\''+p.id+'\')">×</button></td></tr>';
   }).join('') : '<tr><td colspan="8" class="vacio">Sin preentregas cargadas. Registrá acá los trabajos por fuera (0km, etc.) que facturás sin cliente.</td></tr>';
 }
+let pendFiltro='todos';
+function setPendFiltro(v){ pendFiltro=v; renderFact(); }
 function renderFact(){
   renderPreentregas();
   const mes = hoy().slice(0,7);
@@ -2752,10 +2755,14 @@ function renderFact(){
         '<div style="font-size:10.5px;color:var(--gris2)">'+b.n+(b.n!==1?' órdenes':' orden')+'</div></div>').join('')+'</div>';
   }
 
-  const totPP = pendPago.reduce((a,o)=>a+totalesOT(o).venta,0) + pendTandas.reduce((a,f)=>a+(f.monto||0),0);
-  const nPP = pendPago.length + pendTandas.length;
+  const verOT = pendFiltro!=='gwm', verTanda = pendFiltro!=='ot';
+  if($('pendFiltro')) $('pendFiltro').value=pendFiltro;
+  const totOT = pendPago.reduce((a,o)=>a+totalesOT(o).venta,0);
+  const totTanda = pendTandas.reduce((a,f)=>a+(f.monto||0),0);
+  const totPP = (verOT?totOT:0) + (verTanda?totTanda:0);
+  const nPP = (verOT?pendPago.length:0) + (verTanda?pendTandas.length:0);
   $('resPendPago').innerHTML = nPP ? '<b>'+money(totPP)+'</b><span>'+nPP+(nPP!==1?' pendientes':' pendiente')+'</span>' : '<span>Sin pendientes</span>';
-  const filasPendOT = pendPago.map(o=>{
+  const filasPendOT = verOT ? pendPago.map(o=>{
     const t=totalesOT(o);
     const facturarBtn = o.facturada
       ? '<span class="chip sin" style="color:#136e4e;background:#d7efe3;margin-right:6px">Facturada ✓</span>'
@@ -2764,14 +2771,14 @@ function renderFact(){
     '<td><div class="persona"><div class="avatar">'+inic(o.cliente)+'</div><div>'+esc(o.cliente)+'<small>'+esc(o.veh||'')+' · '+(o.dominio||'—')+' · '+socNombre[o.soc]+'</small></div></div></td>'+
     '<td class="num">'+money(t.venta)+'</td>'+
     '<td style="text-align:right;width:230px;white-space:nowrap">'+facturarBtn+'<button class="btn verde mini" onclick="abrirPago(\''+o.id+'\')">Registrar pago</button></td></tr>';
-  }).join('');
-  const filasPendTanda = pendTandas.map(f=>
+  }).join('') : '';
+  const filasPendTanda = verTanda ? pendTandas.map(f=>
     '<tr><td class="num" style="text-align:left;width:80px">PE</td>'+
     '<td><div class="persona"><div class="avatar" style="background:#1c3f66">'+inic(f.cliente||'GWM')+'</div><div>'+esc(f.cliente||'—')+'<small>Pre-entrega GWM · '+esc(f.tipo||'')+(f.nro?' '+esc(f.nro):'')+' · '+(socNombre[f.soc]||'—')+'</small></div></div></td>'+
     '<td class="num">'+money(f.monto||0)+'</td>'+
     '<td style="text-align:right;width:230px;white-space:nowrap"><button class="btn fantasma mini" onclick="pdfFactura(\''+f.id+'\',\''+f.ot+'\')">PDF</button> <button class="btn verde mini" onclick="abrirCobroTanda(\''+f.id+'\')">Registrar cobro</button></td></tr>'
-  ).join('');
-  $('tbPendPago').innerHTML = (filasPendOT+filasPendTanda) || '<tr><td colspan="4" class="vacio">No hay órdenes entregadas sin pago.<br><small style="font-weight:500">Pasá una orden a Entregado para que aparezca acá.</small></td></tr>';
+  ).join('') : '';
+  $('tbPendPago').innerHTML = (filasPendOT+filasPendTanda) || '<tr><td colspan="4" class="vacio">'+(pendFiltro==='gwm'?'No hay pre-entregas GWM pendientes de cobro.':(pendFiltro==='ot'?'No hay órdenes del taller pendientes de cobro.':'No hay órdenes entregadas sin pago.<br><small style="font-weight:500">Pasá una orden a Entregado para que aparezca acá.</small>'))+'</td></tr>';
 
   const pagoTotOT = o => { const ps=db.pagos.filter(p=>p.ot===o.numero); return ps.length ? ps.reduce((s,p)=>s+(p.monto||0),0) : totalesOT(o).venta; };
   const medioTxtOT = o => { const ps=db.pagos.filter(p=>p.ot===o.numero); if(!ps.length) return '—'; const ms=[...new Set(ps.map(p=>p.medio).filter(Boolean))]; return ms.length>1 ? ('Varios ('+ms.join(' + ')+')') : (ms[0]||'—'); };
