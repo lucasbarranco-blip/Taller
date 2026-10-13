@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08r facturar-orden-buscador -->
+<!-- build 2026-08-08s buscador-sin-acentos -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2956,10 +2956,10 @@ function construirLineasFactura(factOT, ivaDefE){
 }
 function facturarBuscar(){
   const d=$('factBuscarDrop'); if(!d) return;
-  const q=($('factBuscarInput')?$('factBuscarInput').value:'').trim().toLowerCase();
+  const _n=x=>(x||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const q=_n(($('factBuscarInput')?$('factBuscarInput').value:'').trim());
   let l=(db.ots||[]).filter(o=>!o.archivada);
-  if(typeof socFact!=='undefined' && socFact) l=l.filter(o=>o.soc===socFact);
-  if(q) l=l.filter(o=>((o.numero||'')+' '+(o.cliente||'')+' '+(o.veh||'')+' '+(o.dominio||'')).toLowerCase().includes(q));
+  if(q) l=l.filter(o=>_n((o.numero||'')+' '+(o.cliente||'')+' '+(o.veh||'')+' '+(o.dominio||'')).includes(q));
   l=l.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).slice(0,10);
   d.innerHTML = l.length ? l.map(o=>{
     const yaFact=(db.facturas||[]).some(ff=>ff.ot===o.numero && !ff.esNC);
