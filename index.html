@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08t buscador-visible -->
+<!-- build 2026-08-08u prov-buscador-comprobantes -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -464,6 +464,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
     <div class="cab-box" style="gap:12px;flex-wrap:wrap">
       <div class="segm"><button id="pfPend" class="on" onclick="setProvFiltro('pend')">Pendientes</button><button id="pfArch" onclick="setProvFiltro('arch')">Pagadas</button><button id="pfTodas" onclick="setProvFiltro('todas')">Todas</button></div>
       <div id="provFiltroInfo" style="font-size:12px;color:var(--gris2)"></div>
+      <input id="provBuscar" oninput="renderProvs()" placeholder="Buscar proveedor, factura\u2026" style="margin-left:auto;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:12.5px;min-width:220px">
     </div>
     <div class="scrollx">
     <table>
@@ -1329,7 +1330,14 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div class="campo"><label>CBU</label><input id="prCbu" placeholder="0070999030004009123456" style="font-family:var(--mono)"></div>
         <div class="campo"><label>Alias</label><input id="prAlias" placeholder="FANTINATTO.REP.MP" style="font-family:var(--mono);text-transform:uppercase"></div>
       </div>
-      <div class="campo" style="margin:0"><label>Notas</label><input id="prNotas" placeholder="Contacto, condiciones de pago, etc."></div>
+      <div class="campo"><label>Notas</label><input id="prNotas" placeholder="Contacto, condiciones de pago, etc."></div>
+      <div style="border-top:1px dashed var(--borde2);margin:4px 0 0;padding-top:12px">
+        <label style="font-size:11.5px;font-weight:700;color:var(--tinta);text-transform:uppercase;letter-spacing:.03em">Comprobantes del proveedor</label>
+        <div style="font-size:11px;color:var(--gris2);margin:4px 0 8px">Remitos, comprobantes de pago, notas, etc. Quedan guardados con el proveedor para consultarlos cuando quieras.</div>
+        <input type="file" id="prCompFile" accept="image/*,application/pdf" multiple onchange="prCompAdd(event)" style="display:none">
+        <button class="btn blanco mini" onclick="document.getElementById('prCompFile').click()">+ Agregar comprobante</button>
+        <div id="prComps" style="margin-top:10px"></div>
+      </div>
     </div>
     <div class="foot-modal">
       <button class="btn rojo" id="prBorrar" onclick="borrarProvReg()" hidden>Eliminar</button>
@@ -1680,7 +1688,7 @@ function renderProveedoresCfg(){
   const l=(db.proveedores||[]).slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
   box.innerHTML = l.length ? l.map(v=>{
     const d=[]; if(v.cuit) d.push('CUIT '+esc(v.cuit)); if(v.banco) d.push(esc(v.banco)); if(v.cbu) d.push('CBU '+esc(v.cbu)); if(v.alias) d.push(esc(v.alias));
-    return '<div class="prov-fila"><div class="avatar" style="border-radius:9px">'+inic(v.nombre)+'</div><div class="datos"><b>'+esc(v.nombre)+'</b><small>'+(d.length?d.join(' · '):'sin datos bancarios')+'</small></div>'+
+    return '<div class="prov-fila"><div class="avatar" style="border-radius:9px">'+inic(v.nombre)+'</div><div class="datos"><b>'+esc(v.nombre)+'</b><small>'+(d.length?d.join(' \u00b7 '):'sin datos bancarios')+((v.comprobantes&&v.comprobantes.length)?(' \u00b7 \ud83d\udcce '+v.comprobantes.length):'')+'</small></div>'+
       '<button class="btn blanco mini" onclick="abrirProvReg(\''+v.id+'\')">Editar</button></div>';
   }).join('') : '<div class="vacio" style="padding:18px;text-align:center;color:var(--gris2)">Todavía no registraste proveedores.</div>';
 }
@@ -2448,6 +2456,32 @@ function copiar(t){ try{ navigator.clipboard.writeText(t); toast('Copiado: '+t);
 function altaProvDesdeFactura(){ if($('pProvDrop')) $('pProvDrop').hidden=true; abrirProvReg(null, $('pNombre').value.trim()); }
 // ---- ABM proveedor ----
 let provRegEdit=null, provRegVolver=false;
+let provRegComps=[];
+function prCompAdd(ev){
+  const files=[...(ev.target.files||[])];
+  files.forEach(f=>{
+    const r=new FileReader();
+    if(f.type==='application/pdf'){
+      r.onload=()=>{ provRegComps.push({ id:uid(), nombre:f.name, tipo:'pdf', data:r.result.split(',')[1], f:hoy() }); pintarProvRegComps(); };
+      r.readAsDataURL(f);
+    } else {
+      r.onload=()=>{ const img=new Image(); img.onload=()=>{ const c=document.createElement('canvas'); const mx=1400; let w=img.width,h=img.height; if(w>mx||h>mx){ const sc=mx/Math.max(w,h); w=Math.round(w*sc); h=Math.round(h*sc); } c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); provRegComps.push({ id:uid(), nombre:f.name, tipo:'img', data:c.toDataURL('image/jpeg',.72).split(',')[1], f:hoy() }); pintarProvRegComps(); }; img.src=r.result; };
+      r.readAsDataURL(f);
+    }
+  });
+  ev.target.value='';
+}
+function prCompQuitar(id){ provRegComps=provRegComps.filter(c=>c.id!==id); pintarProvRegComps(); }
+function verComprobante(id){ const c=provRegComps.find(x=>x.id===id); if(c) verAdjunto({tipo:c.tipo,data:c.data}); }
+function pintarProvRegComps(){
+  const box=$('prComps'); if(!box) return;
+  box.innerHTML = provRegComps.length ? provRegComps.map(c=>{
+    const ico = c.tipo==='img'
+      ? '<img src="data:image/jpeg;base64,'+c.data+'" onclick="verComprobante(\''+c.id+'\')" style="width:46px;height:46px;object-fit:cover;border-radius:7px;border:1px solid var(--borde);cursor:zoom-in">'
+      : '<div onclick="verComprobante(\''+c.id+'\')" class="pdfico" style="width:46px;height:46px;cursor:pointer">PDF</div>';
+    return '<div class="adj-vista" style="margin-bottom:6px;padding:7px">'+ico+'<div style="flex:1;min-width:0"><b style="font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(c.nombre)+'</b><small style="color:var(--gris2)">'+fFecha(c.f)+'</small></div><button class="btn blanco mini" onclick="verComprobante(\''+c.id+'\')">Ver</button> <button class="btn rojo mini" onclick="prCompQuitar(\''+c.id+'\')">\u00d7</button></div>';
+  }).join('') : '<div style="font-size:12px;color:var(--gris2)">Sin comprobantes cargados.</div>';
+}
 function abrirProvReg(id, nombrePre){
   provRegEdit = id ? (db.proveedores||[]).find(v=>v.id===id) : null;
   provRegVolver = $('vProv').classList.contains('on');
@@ -2456,15 +2490,17 @@ function abrirProvReg(id, nombrePre){
   const v=provRegEdit||{};
   $('prNombre').value=v.nombre||nombrePre||''; $('prCuit').value=v.cuit||''; $('prBanco').value=v.banco||'';
   $('prCbu').value=v.cbu||''; $('prAlias').value=v.alias||''; $('prNotas').value=v.notas||'';
+  provRegComps=(v.comprobantes||[]).map(c=>({...c})); pintarProvRegComps();
   $('vProvReg').classList.add('on');
 }
 function guardarProvReg(){
   const nombre=$('prNombre').value.trim(); if(!nombre) return toast('Falta el nombre del proveedor.');
-  const d={ nombre, cuit:$('prCuit').value.trim(), banco:$('prBanco').value.trim(), cbu:$('prCbu').value.trim(), alias:$('prAlias').value.trim().toUpperCase(), notas:$('prNotas').value.trim() };
+  const d={ nombre, cuit:$('prCuit').value.trim(), banco:$('prBanco').value.trim(), cbu:$('prCbu').value.trim(), alias:$('prAlias').value.trim().toUpperCase(), notas:$('prNotas').value.trim(), comprobantes:provRegComps.map(c=>({id:c.id,nombre:c.nombre,tipo:c.tipo,data:c.data,f:c.f})) };
   db.proveedores=db.proveedores||[];
   if(provRegEdit){ Object.assign(provRegEdit,d); }
   else { d.id=uid(); db.proveedores.push(d); provRegEdit=d; }
-  guardar(); cerrar('vProvReg');
+  try{ guardar(); }catch(e){ toast('Sin espacio local: algún comprobante es muy pesado. Quitá alguno o exportá un respaldo.'); return; }
+  cerrar('vProvReg');
   if(provRegVolver && $('vProv').classList.contains('on')){ $('pNombre').value=d.nombre; $('pProvId').value=provRegEdit.id; pintarBancoHint(); }
   if(typeof renderProveedoresCfg==='function') renderProveedoresCfg();
   render(); toast('Proveedor guardado.');
@@ -2576,6 +2612,8 @@ function renderProvCC(){
       if(reg.banco) b.push('<span class="lbl">Banco</span> <b>'+esc(reg.banco)+'</b>');
       if(reg.cbu) b.push('<span class="lbl">CBU</span> <b>'+esc(reg.cbu)+'</b> <button class="copiar" onclick="copiar(\''+esc(reg.cbu)+'\')">copiar</button>');
       if(reg.alias) b.push('<span class="lbl">Alias</span> <b>'+esc(reg.alias)+'</b> <button class="copiar" onclick="copiar(\''+esc(reg.alias)+'\')">copiar</button>');
+      const nComp=(reg.comprobantes||[]).length;
+      b.push('<button class="copiar" onclick="abrirProvReg(\''+reg.id+'\')">\ud83d\udcce '+nComp+' comprobante'+(nComp!==1?'s':'')+'</button>');
       b.push('<button class="copiar" style="margin-left:auto" onclick="abrirProvReg(\''+reg.id+'\')">Editar datos</button>');
       bcard='<div class="bcard">'+b.join('')+'</div>';
     }
@@ -2606,7 +2644,10 @@ function filaFactura(p){
 function renderProvs(){
   const todas = [...db.provs].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   const nPend = todas.filter(p=>!p.pagada).length, nPag = todas.filter(p=>p.pagada).length;
-  const l = provFiltro==='arch' ? todas.filter(p=>p.pagada) : (provFiltro==='todas' ? todas : todas.filter(p=>!p.pagada));
+  let l = provFiltro==='arch' ? todas.filter(p=>p.pagada) : (provFiltro==='todas' ? todas : todas.filter(p=>!p.pagada));
+  const _nq=x=>(x||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const q=_nq(($('provBuscar')?$('provBuscar').value:'').trim());
+  if(q) l=l.filter(p=>_nq((p.nombre||'')+' '+(p.factura||'')+' '+fFecha(p.fecha)+' '+Math.round(montoProv(p))).includes(q));
   if($('provFiltroInfo')) $('provFiltroInfo').textContent = nPend+' pendiente'+(nPend!==1?'s':'')+' · '+nPag+' pagada'+(nPag!==1?'s':'');
   let filas;
   if(provFiltro==='arch'){
