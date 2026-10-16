@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08u prov-buscador-comprobantes -->
+<!-- build 2026-08-08v facturar-terminadas-archivadas -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -501,7 +501,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
   <div class="kpis" id="factKpis"></div>
 
   <div class="panelbox" style="margin-bottom:18px;overflow:visible">
-    <div class="cab-box"><div><h3>Facturar una orden</h3><span style="display:block;font-size:11px;color:var(--gris2);margin-top:1px;font-weight:500">Buscá cualquier orden por número, cliente o dominio y emití su factura (con ARCA) sin entrar a la web de ARCA. Sirve cuando el cliente pagó y después te pide la factura.</span></div></div>
+    <div class="cab-box"><div><h3>Facturar una orden</h3><span style="display:block;font-size:11px;color:var(--gris2);margin-top:1px;font-weight:500">Buscá cualquier orden por número, cliente o dominio y emití su factura (con ARCA) sin entrar a la web de ARCA. Sirve cuando el cliente pagó y después te pide la factura. Incluye órdenes terminadas y archivadas.</span></div></div>
     <div style="padding:14px 18px;position:relative">
       <input id="factBuscarInput" autocomplete="off" oninput="facturarBuscar()" onfocus="facturarBuscar()" onblur="facturarBuscarHide()" placeholder="N\u00famero de orden, cliente o dominio\u2026" style="width:100%;max-width:520px;padding:10px 12px;border:1px solid var(--borde);border-radius:9px;font-size:13px">
       <div id="factBuscarDrop" class="combo-drop" hidden style="max-width:520px"></div>
@@ -2999,13 +2999,13 @@ function facturarBuscar(){
   const d=$('factBuscarDrop'); if(!d) return;
   const _n=x=>(x||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const q=_n(($('factBuscarInput')?$('factBuscarInput').value:'').trim());
-  let l=(db.ots||[]).filter(o=>!o.archivada);
+  let l=(db.ots||[]).slice();
   if(q) l=l.filter(o=>_n((o.numero||'')+' '+(o.cliente||'')+' '+(o.veh||'')+' '+(o.dominio||'')).includes(q));
   l=l.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).slice(0,10);
   d.innerHTML = l.length ? l.map(o=>{
     const yaFact=(db.facturas||[]).some(ff=>ff.ot===o.numero && !ff.esNC);
     const t=totalesOT(o);
-    return '<div class="op" onmousedown="event.preventDefault()" onclick="facturarOTelegida(\''+o.id+'\')"><div class="avatar">'+inic(o.cliente)+'</div><div style="flex:1;min-width:0"><b>'+esc(o.numero)+' \u00b7 '+esc(o.cliente||'\u2014')+'</b><small>'+esc(o.veh||'')+(o.dominio?(' \u00b7 '+esc(o.dominio)):'')+' \u00b7 '+money(t.venta)+' \u00b7 '+chip(o.estado)+(yaFact?' <span style="color:var(--rojo);font-weight:700">ya facturada</span>':'')+'</small></div></div>';
+    return '<div class="op" onmousedown="event.preventDefault()" onclick="facturarOTelegida(\''+o.id+'\')"><div class="avatar">'+inic(o.cliente)+'</div><div style="flex:1;min-width:0"><b>'+esc(o.numero)+' \u00b7 '+esc(o.cliente||'\u2014')+'</b><small>'+esc(o.veh||'')+(o.dominio?(' \u00b7 '+esc(o.dominio)):'')+' \u00b7 '+money(t.venta)+' \u00b7 '+chip(o.estado)+(yaFact?' <span style="color:var(--rojo);font-weight:700">ya facturada</span>':'')+(o.archivada?' <span style="color:var(--gris2);font-weight:700">archivada</span>':'')+'</small></div></div>';
   }).join('') : '<div class="vacio2">Sin coincidencias.</div>';
   d.hidden=false;
 }
