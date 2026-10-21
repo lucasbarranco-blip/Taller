@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08w reporte-stock -->
+<!-- build 2026-08-08x reporte-stock-seleccion -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1031,6 +1031,29 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
   <div class="modal">
     <div class="m-cab"><h3>Movimientos de inventario</h3><button class="cerrar" onclick="cerrar('vMovs')">×</button></div>
     <div class="scrollx"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>SKU</th><th>Producto</th><th class="num">Cantidad</th><th>Referencia</th></tr></thead><tbody id="tbMovs"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ============ MODAL REPORTE DE STOCK ============ -->
+<div class="velo" id="vRepStock">
+  <div class="modal">
+    <div class="m-cab"><h3>Reporte de stock</h3><button class="cerrar" onclick="cerrar('vRepStock')">×</button></div>
+    <div class="m-cuerpo">
+      <p style="color:var(--gris);margin-bottom:12px">Elegí qué repuestos entran en el reporte. Para armar uno solo de un proveedor (ej. GWM): tocá <b>Limpiar todo</b>, elegí el proveedor y <b>Marcar visibles</b>.</p>
+      <div class="toolbar" style="margin-bottom:10px">
+        <div class="f crecer"><label>Buscar</label><input id="repQ" placeholder="SKU, producto, categoría, proveedor…" oninput="repRender()"></div>
+        <div class="f"><label>Proveedor</label><select id="repProv" onchange="repRender()"></select></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <button class="btn blanco mini" onclick="repMarcarVisibles(true)">Marcar visibles</button>
+        <button class="btn blanco mini" onclick="repMarcarVisibles(false)">Desmarcar visibles</button>
+        <button class="btn fantasma mini" onclick="repNinguno()">Limpiar todo</button>
+      </div>
+      <div class="scrollx" style="max-height:44vh;overflow:auto;border:1px solid var(--borde);border-radius:10px">
+        <table><thead><tr><th style="width:40px"></th><th>SKU</th><th>Producto</th><th>Proveedor</th><th class="num">Stock</th></tr></thead><tbody id="tbRep"></tbody></table>
+      </div>
+    </div>
+    <div class="foot-modal"><div id="repResumen" style="font-size:12.5px;font-weight:600;color:var(--gris)"></div><div class="der"><button class="btn" onclick="repGenerar()">Generar reporte</button></div></div>
   </div>
 </div>
 
@@ -2717,13 +2740,47 @@ function renderInv(){
   ).join('') : '<tr><td colspan="10" class="vacio">Inventario vacío. Cargá tu primer producto.</td></tr>';
 }
 
+let repSel = null;
 function reporteStock(){
-  const q = ($('fInvQ').value||'').toLowerCase().trim();
-  let l = db.inv.filter(i=>!q || (i.sku+' '+i.prod+' '+i.cat+' '+i.prov).toLowerCase().includes(q));
+  if(!(db.inv||[]).length) return toast('Inventario vacío. Cargá productos primero.');
+  repSel = new Set(db.inv.map(i=>i.id));
+  $('repQ').value='';
+  const provs=[...new Set(db.inv.map(i=>(i.prov||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+  $('repProv').innerHTML='<option value="">Todos los proveedores</option>'+provs.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join('');
+  $('repProv').value='';
+  repRender();
+  $('vRepStock').classList.add('on');
+}
+function repFiltrados(){
+  const q=($('repQ').value||'').toLowerCase().trim(), pv=$('repProv').value;
+  return db.inv.filter(i=>(!pv || (i.prov||'').trim()===pv) && (!q || (i.sku+' '+i.prod+' '+(i.cat||'')+' '+(i.prov||'')).toLowerCase().includes(q)));
+}
+function repRender(){
+  const l=repFiltrados();
+  $('tbRep').innerHTML = l.length ? l.map(i=>{
+    const on=repSel.has(i.id);
+    return '<tr style="cursor:pointer" onclick="repToggle(\''+i.id+'\')">'+
+      '<td style="text-align:center"><input type="checkbox" style="width:16px;height:16px;padding:0;margin:0" '+(on?'checked':'')+' onclick="event.stopPropagation();repToggle(\''+i.id+'\')"></td>'+
+      '<td class="num" style="text-align:left">'+esc(i.sku||'—')+'</td>'+
+      '<td><b>'+esc(i.prod||'')+'</b></td>'+
+      '<td>'+esc(i.prov||'')+'</td>'+
+      '<td class="num">'+(+i.stock||0)+'</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="vacio">Sin repuestos para este filtro.</td></tr>';
+  repResumen();
+}
+function repToggle(id){ if(repSel.has(id)) repSel.delete(id); else repSel.add(id); repRender(); }
+function repMarcarVisibles(on){ repFiltrados().forEach(i=>{ on?repSel.add(i.id):repSel.delete(i.id); }); repRender(); }
+function repNinguno(){ repSel.clear(); repRender(); }
+function repResumen(){
+  const sel=db.inv.filter(i=>repSel.has(i.id)), u=sel.reduce((a,i)=>a+(+i.stock||0),0);
+  $('repResumen').textContent = sel.length+' seleccionado'+(sel.length===1?'':'s')+' · '+u+' unidad'+(u===1?'':'es');
+}
+function repGenerar(){
+  let l = db.inv.filter(i=>repSel.has(i.id));
+  if(!l.length) return toast('Elegí al menos un repuesto para el reporte.');
   l = l.slice().sort((a,b)=>(a.sku||'').localeCompare(b.sku||'', 'es', {numeric:true}));
-  if(!l.length) return toast('No hay productos para el reporte.');
   const totalU = l.reduce((a,i)=>a+(+i.stock||0),0);
-  const sub = 'Detalle de códigos, descripciones y cantidades en stock · ' + fFecha(hoy()) + (q ? ' · Filtro: "'+esc(q)+'"' : '');
+  const sub = 'Detalle de códigos, descripciones y cantidades en stock · ' + fFecha(hoy());
   const filas = l.map((i,idx)=>
     '<tr'+(idx%2?' class="alt"':'')+'>'+
     '<td class="cod">'+esc(i.sku||'—')+'</td>'+
