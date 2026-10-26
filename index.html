@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08x reporte-stock-seleccion -->
+<!-- build 2026-08-08y validez-presupuesto-editable -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -957,6 +957,12 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
         <div id="otACuentaList"></div>
         <button class="btn blanco mini" onclick="agregarACuenta()">+ Agregar pago a cuenta</button>
         <div id="otACuentaHint" style="font-size:12px;color:var(--gris);font-weight:600;margin-top:10px"></div>
+      </div>
+
+      <div class="seccion">
+        <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Validez del presupuesto</h4>
+        <div style="font-size:11.5px;color:var(--gris);line-height:1.5;margin-bottom:10px">Días que vale este presupuesto para el cliente. Si lo dejás vacío usa el valor por defecto de Configuración (<b><span id="otValidezDef">7</span> días</b>). Se muestra en el PDF del cliente.</div>
+        <div class="campo" style="max-width:240px;margin:0"><label>Validez (días)</label><input type="number" id="otValidez" min="0" placeholder="por defecto"></div>
       </div>
 
       <div class="seccion" id="otVersionesSec" style="margin-bottom:0">
@@ -2045,6 +2051,8 @@ function renderOTsPorFecha(lista){
 }
 
 let otEdit = null;
+function validezDe(o){ const v=o&&o.validez; return (v!==undefined && v!==null && v!=='') ? +v : (db.cfg.validez!==undefined?db.cfg.validez:7); }
+function validezTxt(o){ const n=validezDe(o); return n+' '+(n===1?'d\u00eda':'d\u00edas'); }
 function pintarPipe(actual){
   $('otPipe').innerHTML = ESTADOS.map((e,i)=>{
     const es = i===IDX[actual], hecho = i<IDX[actual], bloq = i>MANUAL_MAX;
@@ -2077,6 +2085,8 @@ function abrirOT(id){
   $('otVeh').value = o.veh||''; $('otDominio').value = o.dominio||''; $('otKm').value = o.km||'';
   $('otChasis').value = o.chasis||''; $('otMotor').value = o.motor||'';
   if($('otDocCli')) $('otDocCli').value = o.docCli || 'orden';
+  if($('otValidez')) $('otValidez').value = (o.validez!==undefined&&o.validez!==null&&o.validez!=='')?o.validez:'';
+  if($('otValidezDef')) $('otValidezDef').textContent = (db.cfg.validez!==undefined?db.cfg.validez:7);
   fillMOtipos(); if($('otMOtipo')) $('otMOtipo').value=''; $('otMOdet').value = o.moDet||''; $('otMOprecio').value = o.moPrecio||0;
   if($('otMODescTipo')) $('otMODescTipo').value = o.moDescTipo || 'pct'; if($('otMODescVal')) $('otMODescVal').value = o.moDescVal || 0;
   $('otRepVenta').value = (o.repVenta!==undefined && o.repVenta!==null && o.repVenta!=='') ? o.repVenta : (o.items||[]).reduce((a,i)=>a+(i.cant||0)*(i.precio||0),0);
@@ -2251,7 +2261,8 @@ function guardarOTsilencioso(){
     items:leerItems(), repVenta:+$('otRepVenta').value||0, detallarRep:!!($('otDetalleRep')&&$('otDetalleRep').checked), moDet:$('otMOdet').value.trim(), moCosto:0, moPrecio:+$('otMOprecio').value||0,
     moDescTipo:($('otMODescTipo')?$('otMODescTipo').value:'pct'), moDescVal:+($('otMODescVal')?$('otMODescVal').value:0)||0,
     servCerrado:($('otServCerrado')?$('otServCerrado').checked:false), servNombre:($('otServNombre')?$('otServNombre').value.trim():''), servPrecio:+($('otServPrecio')?$('otServPrecio').value:0)||0, servDet:($('otServDet')?$('otServDet').value.trim():''), servExtras:leerServExtras(),
-    aCuenta: leerACuenta()
+    aCuenta: leerACuenta(),
+    validez: ($('otValidez') && $('otValidez').value!=='') ? Math.max(0,+$('otValidez').value||0) : null
   };
   if(otEdit){ Object.assign(otEdit, datos); }
   else {
@@ -2280,7 +2291,7 @@ function snapOT(o){
     moDet:o.moDet, moPrecio:+o.moPrecio||0, moDescTipo:o.moDescTipo||'pct', moDescVal:+o.moDescVal||0,
     aCuenta:(o.aCuenta||[]).map(p=>({f:p.f,monto:p.monto,nota:p.nota})),
     servCerrado:!!o.servCerrado, servNombre:o.servNombre||'', servPrecio:+o.servPrecio||0, servDet:o.servDet||'', servExtras:(o.servExtras||[]).map(e=>({desc:e.desc,precio:e.precio})),
-    total:t.venta, rep:t.rep, mo:t.mo, moDesc:t.moDesc };
+    total:t.venta, rep:t.rep, mo:t.mo, moDesc:t.moDesc, validez:(o.validez!==undefined?o.validez:null) };
 }
 function guardarVersion(){
   if(!$('otCliente').value.trim()) return toast('Cargá al menos el cliente antes de guardar una versión.');
@@ -2310,7 +2321,7 @@ function verVersionPDF(verId){
     veh:otEdit.veh, dominio:otEdit.dominio, km:otEdit.km, chasis:otEdit.chasis, motor:otEdit.motor,
     docCli:v.docCli||'presupuesto', items:v.items||[], repVenta:v.repVenta, detallarRep:!!v.detallarRep,
     moDet:v.moDet, moPrecio:+v.moPrecio||0, moDescTipo:v.moDescTipo||'pct', moDescVal:+v.moDescVal||0, aCuenta:v.aCuenta||[],
-    servCerrado:!!v.servCerrado, servNombre:v.servNombre||'', servPrecio:+v.servPrecio||0, servDet:v.servDet||'', servExtras:v.servExtras||[] };
+    servCerrado:!!v.servCerrado, servNombre:v.servNombre||'', servPrecio:+v.servPrecio||0, servDet:v.servDet||'', servExtras:v.servExtras||[], validez:(v.validez!==undefined?v.validez:null) };
   verPDF(o,'cliente');
 }
 function borrarVersion(verId){
@@ -4010,8 +4021,8 @@ function itemsTexto(o){
 }
 function aplicarPlantilla(tpl,o){
   const cfg=db.cfg[o.soc]||{}, t=totalesOT(o);
-  const cond=(db.cfg.condiciones&&db.cfg.condiciones.trim())?db.cfg.condiciones.trim():('Presupuesto válido por '+((db.cfg.validez!==undefined)?db.cfg.validez:7)+' días.');
-  const map={ '{taller}':cfg.rz||'Taller','{cliente}':o.cliente||'—','{vehiculo}':o.veh||'—','{dominio}':o.dominio||'—','{patente}':o.dominio||'—','{numero}':o.numero||'','{fecha}':fFecha(o.fecha),'{km}':o.km||'','{repuestos}':money(t.rep),'{manoobra}':money(t.moBruto),'{descuento}':(t.moDesc>0?('Descuento mano de obra'+(((o.moDescTipo||'pct')==='pct'&&+o.moDescVal)?' ('+(+o.moDescVal)+'%)':'')+': -'+money(t.moDesc)):''),'{total}':money(t.venta),'{adelanto}':(()=>{ const ac=(o.aCuenta||[]).filter(p=>(+p.monto||0)>0); return ac.length?('Pago a cuenta: -'+money(ac.reduce((a,p)=>a+(+p.monto||0),0))):''; })(),'{saldo}':(()=>{ const ac=(o.aCuenta||[]).filter(p=>(+p.monto||0)>0); const tot=ac.reduce((a,p)=>a+(+p.monto||0),0); return money(t.venta-tot); })(),'{items}':itemsTexto(o),'{validez}':((db.cfg.validez!==undefined)?db.cfg.validez:7),'{condiciones}':cond,'{saludo}':db.cfg.saludo||'' };
+  const cond=(db.cfg.condiciones&&db.cfg.condiciones.trim())?db.cfg.condiciones.trim():('Presupuesto válido por '+validezDe(o)+' días.');
+  const map={ '{taller}':cfg.rz||'Taller','{cliente}':o.cliente||'—','{vehiculo}':o.veh||'—','{dominio}':o.dominio||'—','{patente}':o.dominio||'—','{numero}':o.numero||'','{fecha}':fFecha(o.fecha),'{km}':o.km||'','{repuestos}':money(t.rep),'{manoobra}':money(t.moBruto),'{descuento}':(t.moDesc>0?('Descuento mano de obra'+(((o.moDescTipo||'pct')==='pct'&&+o.moDescVal)?' ('+(+o.moDescVal)+'%)':'')+': -'+money(t.moDesc)):''),'{total}':money(t.venta),'{adelanto}':(()=>{ const ac=(o.aCuenta||[]).filter(p=>(+p.monto||0)>0); return ac.length?('Pago a cuenta: -'+money(ac.reduce((a,p)=>a+(+p.monto||0),0))):''; })(),'{saldo}':(()=>{ const ac=(o.aCuenta||[]).filter(p=>(+p.monto||0)>0); const tot=ac.reduce((a,p)=>a+(+p.monto||0),0); return money(t.venta-tot); })(),'{items}':itemsTexto(o),'{validez}':validezDe(o),'{condiciones}':cond,'{saludo}':db.cfg.saludo||'' };
   let s=tpl; Object.keys(map).forEach(k=>{ s=s.split(k).join(map[k]); });
   return s;
 }
@@ -4046,7 +4057,7 @@ function resumenTextoOT(o){
   }
   const acArr=(o.aCuenta||[]).filter(p=>(+p.monto||0)>0);
   if(acArr.length){ const totAC=acArr.reduce((a,p)=>a+(+p.monto||0),0); acArr.forEach(p=>{ x+='Pago a cuenta'+(p.f?' ('+fFecha(p.f)+')':'')+(p.nota?' — '+p.nota:'')+': -'+money(p.monto)+'\n'; }); x+='SALDO PENDIENTE: '+money(t.venta-totAC)+'\n\n'; }
-  x += (db.cfg.condiciones && db.cfg.condiciones.trim()) ? db.cfg.condiciones.trim() : ('Presupuesto válido por '+((db.cfg.validez!==undefined)?db.cfg.validez:7)+' días.');
+  x += (db.cfg.condiciones && db.cfg.condiciones.trim()) ? db.cfg.condiciones.trim() : ('Presupuesto válido por '+validezDe(o)+' días.');
   return x;
 }
 function telWhats(celu){
@@ -4435,7 +4446,7 @@ function armarHoja(o, modo){
   const metaCliente =
     '<div class="h-meta">'+
     '<div><span>Fecha de emisión</span><b>'+fFecha(o.fecha)+'</b></div>'+
-    (o.soc==='AT'?'':'<div><span>Validez</span><b>7 días</b></div>')+
+    (o.soc==='AT'?'':'<div><span>Validez</span><b>'+validezTxt(o)+'</b></div>')+
     '<div><span>Dominio</span><b>'+esc(o.dominio||'—')+'</b></div>'+
     '<div><span>Documento</span><b>N° '+esc(o.numero)+'</b></div>'+
     '</div>';
