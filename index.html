@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08y validez-presupuesto-editable -->
+<!-- build 2026-08-08z sociedad-editable-desglose-full -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2078,7 +2078,7 @@ function abrirOT(id){
   $('otArchivar').hidden = !otEdit || (otEdit && otEdit.archivada);
   $('otArchivar').textContent = 'Archivar';
   const o = otEdit || {};
-  $('otSoc').value = o.soc || 'AT'; $('otSoc').disabled = !!otEdit;
+  $('otSoc').value = o.soc || 'AT'; $('otSoc').disabled = false;
   pintarPipe(o.estado || 'Por crear');
   $('otFecha').value = o.fecha || hoy();
   $('otCliente').value = o.cliente||''; $('otCelu').value = o.celu||''; $('otEmail').value = o.email||'';
@@ -2264,6 +2264,11 @@ function guardarOTsilencioso(){
     aCuenta: leerACuenta(),
     validez: ($('otValidez') && $('otValidez').value!=='') ? Math.max(0,+$('otValidez').value||0) : null
   };
+  if(otEdit && datos.soc !== otEdit.soc){
+    const bloqueado = (db.facturas||[]).some(f=>f.ot===otEdit.numero) || (db.pagos||[]).some(x=>x.ot===otEdit.numero);
+    if(bloqueado){ datos.soc = otEdit.soc; }
+    else { db.seq[datos.soc]=(db.seq[datos.soc]||0)+1; datos.numero = datos.soc + '-' + String(db.seq[datos.soc]).padStart(4,'0'); }
+  }
   if(otEdit){ Object.assign(otEdit, datos); }
   else {
     db.seq[datos.soc]++;
@@ -2278,6 +2283,14 @@ function guardarOTsilencioso(){
 function guardarOT(){
   if(!$('otCliente').value.trim()) return toast('Falta el nombre del cliente.');
   if(!otEdit && limiteDemo('ots','órdenes')) return;
+  if(otEdit && $('otSoc').value !== otEdit.soc){
+    const nuevaSoc=$('otSoc').value;
+    if((db.facturas||[]).some(f=>f.ot===otEdit.numero) || (db.pagos||[]).some(x=>x.ot===otEdit.numero)){
+      $('otSoc').value=otEdit.soc; return toast('No se puede cambiar la sociedad: la orden ya tiene factura o pagos asociados.');
+    }
+    const prox=nuevaSoc+'-'+String((db.seq[nuevaSoc]||0)+1).padStart(4,'0');
+    if(!confirm('Vas a cambiar la sociedad de la orden '+otEdit.numero+' a '+socNombre[nuevaSoc]+'.\n\nSe le asignar\u00e1 un n\u00famero nuevo: '+prox+'.\n\n\u00bfContinuar?')){ $('otSoc').value=otEdit.soc; return; }
+  }
   guardarOTsilencioso();
   guardar(); render(); cerrar('vOT'); toast('Orden ' + otEdit.numero + ' guardada.');
 }
@@ -2831,6 +2844,8 @@ function repGenerar(){
 let pagoOT=null, factOT=null, pagoCtx=null;
 let socFact = '';
 const socDe = num => (num||'').slice(0,2);
+let contaCatsFull = false;
+function toggleContaCats(){ contaCatsFull=!contaCatsFull; renderConta(); }
 function setSocFact(s){
   socFact = s;
   $('fsTodas').classList.toggle('on', s==='');
@@ -3654,15 +3669,21 @@ function renderConta(){
   // desglose por categoría del período
   const catAgg = (tipo) => {
     const g={}; l.filter(m=>tipo==='Ingreso'?m.tipo==='Ingreso':m.tipo!=='Ingreso').forEach(m=>{ g[m.cat||'General']=(g[m.cat||'General']||0)+m.monto; });
-    return Object.entries(g).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    return Object.entries(g).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]);
   };
   const barras = (pares, tot, col) => pares.map(p=>
     '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;margin-bottom:3px"><span>'+esc(p[0])+'</span><span style="font-family:var(--mono)">'+money(p[1])+' <span style="color:var(--gris2)">('+Math.round(p[1]/tot*100)+'%)</span></span></div>'+
     '<div style="height:7px;border-radius:99px;background:#eef0f4;overflow:hidden"><div style="height:100%;width:'+(p[1]/tot*100)+'%;background:'+col+';border-radius:99px"></div></div></div>').join('');
-  const egrCats = catAgg('Egreso'), ingCats = catAgg('Ingreso');
-  $('ctCats').innerHTML = (egrCats.length||ingCats.length) ?
+  const egrCatsAll = catAgg('Egreso'), ingCatsAll = catAgg('Ingreso');
+  const LIMcat = 5, hayMasCats = egrCatsAll.length>LIMcat || ingCatsAll.length>LIMcat;
+  const egrCats = contaCatsFull ? egrCatsAll : egrCatsAll.slice(0,LIMcat);
+  const ingCats = contaCatsFull ? ingCatsAll : ingCatsAll.slice(0,LIMcat);
+  const totCats = Math.max(egrCatsAll.length, ingCatsAll.length);
+  const togCats = hayMasCats ? '<button class="btn fantasma mini" style="margin-top:12px;width:100%" onclick="toggleContaCats()">'+(contaCatsFull?'\u25b2 Ver menos':'\u25bc Ver todas las categor\u00edas ('+totCats+')')+'</button>' : '';
+  $('ctCats').innerHTML = (egrCatsAll.length||ingCatsAll.length) ?
     (egrCats.length ? '<div style="font-size:11px;font-weight:800;color:var(--rojo);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Egresos</div>'+barras(egrCats, egr||1, '#e0685e') : '')+
-    (ingCats.length ? '<div style="font-size:11px;font-weight:800;color:var(--ok);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 8px">Ingresos</div>'+barras(ingCats, ing||1, '#0e8a5f') : '')
+    (ingCats.length ? '<div style="font-size:11px;font-weight:800;color:var(--ok);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 8px">Ingresos</div>'+barras(ingCats, ing||1, '#0e8a5f') : '')+
+    togCats
     : '<div class="vacio" style="padding:30px 0">Sin movimientos en el período.</div>';
 
   // ---- IVA del período ----
