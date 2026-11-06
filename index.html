@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- build 2026-08-08z sociedad-editable-desglose-full -->
+<!-- build 2026-08-09a recibo-pago-adelantado -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -953,7 +953,7 @@ td.gan{color:var(--ok);font-weight:600} td.gan.neg{color:var(--rojo)}
 
       <div class="seccion">
         <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Pagos a cuenta / Seña</h4>
-        <div style="font-size:11.5px;color:var(--gris);line-height:1.5;margin-bottom:10px">Si el cliente dejó una seña o un pago a cuenta, anotalo acá. Aparece en el PDF del cliente con el <b>saldo pendiente</b>. Es solo informativo del presupuesto — no modifica la contabilidad.</div>
+        <div style="font-size:11.5px;color:var(--gris);line-height:1.5;margin-bottom:10px">Si el cliente dejó una seña o un pago a cuenta, anotalo acá. Aparece en el PDF del cliente con el <b>saldo pendiente</b>. Es solo informativo del presupuesto — no modifica la contabilidad. Con <b>🧾 Recibo</b> imprimís un comprobante del adelanto para el cliente y queda constancia en la orden.</div>
         <div id="otACuentaList"></div>
         <button class="btn blanco mini" onclick="agregarACuenta()">+ Agregar pago a cuenta</button>
         <div id="otACuentaHint" style="font-size:12px;color:var(--gris);font-weight:600;margin-top:10px"></div>
@@ -2221,11 +2221,14 @@ let otACuenta = [];
 function pintarACuenta(){
   const cont = $('otACuentaList'); if(!cont) return;
   cont.innerHTML = otACuenta.map((r,i)=>
-    '<div class="acuenta-row" style="display:grid;grid-template-columns:150px 140px 1fr 34px;gap:8px;margin-bottom:7px;align-items:center">'+
+    '<div class="acuenta-row" style="display:grid;grid-template-columns:140px 120px 1fr auto;gap:8px;margin-bottom:7px;align-items:center">'+
     '<input type="date" class="ac-f" value="'+esc(r.f||hoy())+'" onchange="calcACuenta()">'+
     '<input type="number" class="ac-monto" min="0" placeholder="0" value="'+(r.monto!=null&&r.monto!==''?r.monto:'')+'" oninput="calcACuenta()">'+
     '<input type="text" class="ac-nota" placeholder="Nota (ej: seña, transferencia)" value="'+esc(r.nota||'')+'">'+
-    '<button class="btn blanco mini" onclick="quitarACuenta('+i+')" title="Quitar" style="color:var(--rojo);font-weight:700">×</button>'+
+    '<div style="display:flex;gap:6px;align-items:center">'+
+      '<button class="btn blanco mini" onclick="reciboACuenta('+i+')" title="Imprimir recibo para el cliente">🧾 Recibo</button>'+
+      '<button class="btn blanco mini" onclick="quitarACuenta('+i+')" title="Quitar" style="color:var(--rojo);font-weight:700">×</button>'+
+    '</div>'+
     '</div>'
   ).join('');
   calcACuenta();
@@ -2250,6 +2253,102 @@ function calcACuenta(){
   hint.innerHTML = tot>0
     ? 'A cuenta: <b style="color:var(--ok)">'+money(tot)+'</b> · Saldo pendiente: <b style="color:'+((venta-tot)>=0?'var(--tinta)':'var(--rojo)')+'">'+money(venta-tot)+'</b> <span style="color:var(--gris2);font-weight:500">(sobre total '+money(venta)+')</span>'
     : '';
+}
+function _ntl_sec(n){
+  const UNI=['','UNO','DOS','TRES','CUATRO','CINCO','SEIS','SIETE','OCHO','NUEVE','DIEZ','ONCE','DOCE','TRECE','CATORCE','QUINCE','DIECISEIS','DIECISIETE','DIECIOCHO','DIECINUEVE','VEINTE'];
+  const DEC=['','','','TREINTA','CUARENTA','CINCUENTA','SESENTA','SETENTA','OCHENTA','NOVENTA'];
+  const CEN=['','CIENTO','DOSCIENTOS','TRESCIENTOS','CUATROCIENTOS','QUINIENTOS','SEISCIENTOS','SETECIENTOS','OCHOCIENTOS','NOVECIENTOS'];
+  if(n===100) return 'CIEN';
+  let t='', c=Math.floor(n/100), r=n%100;
+  if(c) t+=CEN[c]+(r?' ':'');
+  if(r<=20) t+=UNI[r];
+  else { const d=Math.floor(r/10), u=r%10; t += (d===2 ? ('VEINTI'+UNI[u]) : (DEC[d]+(u?' Y '+UNI[u]:''))); }
+  return t.trim();
+}
+function numeroALetras(num){
+  num=Math.floor(Math.abs(+num||0));
+  if(num===0) return 'CERO';
+  const millon=Math.floor(num/1000000), mil=Math.floor((num%1000000)/1000), uni=num%1000;
+  let s='';
+  if(millon) s += (millon===1?'UN MILLON':numeroALetras(millon)+' MILLONES');
+  if(mil) s += (s?' ':'') + (mil===1?'MIL':_ntl_sec(mil)+' MIL');
+  if(uni) s += (s?' ':'') + _ntl_sec(uni);
+  return s.trim();
+}
+function montoEnLetras(n){
+  n=Math.abs(+n||0);
+  const ent=Math.floor(n), cent=Math.round((n-ent)*100);
+  let t=numeroALetras(ent)+' PESOS';
+  if(cent>0) t += ' CON '+numeroALetras(cent)+'/100';
+  return t;
+}
+function reciboACuenta(i){
+  if(!$('otCliente').value.trim()) return toast('Cargá el nombre del cliente antes de imprimir el recibo.');
+  const rows=$('otACuentaList')?[...$('otACuentaList').querySelectorAll('.acuenta-row')]:[];
+  const row=rows[i]; if(!row) return;
+  const f=row.querySelector('.ac-f').value||hoy();
+  const monto=+row.querySelector('.ac-monto').value||0;
+  const nota=(row.querySelector('.ac-nota').value||'').trim();
+  if(monto<=0) return toast('Cargá el importe del pago antes de imprimir el recibo.');
+  if(!otEdit && limiteDemo('ots','órdenes')) return;
+  guardarOTsilencioso(); guardar();
+  const o=otEdit;
+  const cfg=db.cfg[o.soc]||{}, logo=(o.soc==='AT'?LOGO_AT:LOGO_TQ), acc=(o.soc==='AT'?'#c2372e':'#1c3f66');
+  const t=totalesOT(o), totAC=(o.aCuenta||[]).reduce((a,p)=>a+(+p.monto||0),0), saldo=t.venta-totAC;
+  const nroRec=(o.numero||'')+' · Recibo '+(i+1);
+  const concepto = nota || 'Pago a cuenta / seña';
+  const dirLine = (cfg.dir?esc(cfg.dir):'')+(cfg.tel?(cfg.dir?' · ':'')+'Tel. '+esc(cfg.tel):'');
+  const html = '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recibo '+esc(o.numero||'')+'</title>'+
+    '<style>'+
+    '*{box-sizing:border-box;margin:0;padding:0}'+
+    'body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2d3d;background:#fff;padding:42px 50px}'+
+    '.top{display:flex;align-items:center;gap:16px;border-bottom:3px solid '+acc+';padding-bottom:16px}'+
+    '.top img{height:58px;width:auto}'+
+    '.rz{font-size:17px;font-weight:800;letter-spacing:.3px;color:'+acc+'}'+
+    '.rz small{display:block;font-size:11px;font-weight:600;color:#6b7684;letter-spacing:.02em;margin-top:2px}'+
+    '.titbar{display:flex;justify-content:space-between;align-items:flex-end;margin:22px 0 4px}'+
+    '.titbar h1{font-size:30px;font-weight:800;letter-spacing:1px;color:'+acc+'}'+
+    '.titbar .nro{font-size:12.5px;color:#6b7684;text-align:right;font-weight:600}'+
+    '.caja{border:1px solid #e2e8ed;border-radius:12px;padding:20px 22px;margin-top:18px}'+
+    '.fila{display:flex;margin-bottom:12px;font-size:13.5px;line-height:1.5}'+
+    '.fila .et{width:150px;flex-shrink:0;color:#6b7684;font-weight:600}'+
+    '.fila .va{font-weight:600;color:#1f2d3d}'+
+    '.monto{font-size:22px;font-weight:800;color:'+acc+'}'+
+    '.letras{font-style:italic;color:#36506b;font-size:12.5px;margin-top:3px}'+
+    '.resumen{display:flex;gap:10px;margin-top:16px}'+
+    '.resumen .r{flex:1;border:1px solid #e2e8ed;border-radius:10px;padding:11px 13px}'+
+    '.resumen .r span{display:block;font-size:10.5px;color:#6b7684;font-weight:700;text-transform:uppercase;letter-spacing:.03em}'+
+    '.resumen .r b{font-size:15px;color:#1f2d3d}'+
+    '.firma{margin-top:52px;display:flex;justify-content:flex-end}'+
+    '.firma .box{width:260px;text-align:center;border-top:1px solid #9aa4b2;padding-top:7px;font-size:11.5px;color:#6b7684}'+
+    '.firma .box img{display:block;max-height:60px;margin:0 auto 4px}'+
+    '.legal{margin-top:28px;font-size:10px;color:#8b93a1;line-height:1.5;border-top:1px solid #eef0f4;padding-top:10px}'+
+    '.bar{position:fixed;top:14px;right:16px;display:flex;gap:8px;z-index:9}'+
+    '.bar button{font:inherit;font-size:13px;padding:8px 14px;border-radius:8px;border:1px solid '+acc+';background:'+acc+';color:#fff;cursor:pointer}'+
+    '.bar button.g{background:#fff;color:'+acc+'}'+
+    '@media print{.bar{display:none}body{padding:0 10px}}'+
+    '</style></head><body>'+
+    '<div class="bar"><button onclick="window.print()">Imprimir / Guardar PDF</button><button class="g" onclick="window.close()">Cerrar</button></div>'+
+    '<div class="top"><img src="'+logo+'" alt=""><div><div class="rz">'+esc(cfg.rz||'Taller')+'<small>'+esc(cfg.sub||'')+(cfg.cuit?' · CUIT '+esc(cfg.cuit):'')+(dirLine?'<br>'+dirLine:'')+'</small></div></div></div>'+
+    '<div class="titbar"><h1>RECIBO</h1><div class="nro">'+esc(nroRec)+'<br>Fecha: '+fFecha(f)+'</div></div>'+
+    '<div class="caja">'+
+      '<div class="fila"><div class="et">Recibí de</div><div class="va">'+esc(o.cliente||'—')+'</div></div>'+
+      '<div class="fila"><div class="et">La suma de</div><div class="va"><span class="monto">'+money(monto)+'</span><div class="letras">Son '+esc(montoEnLetras(monto))+'</div></div></div>'+
+      '<div class="fila"><div class="et">En concepto de</div><div class="va">'+esc(concepto)+'</div></div>'+
+      '<div class="fila" style="margin-bottom:0"><div class="et">Orden N°</div><div class="va">'+esc(o.numero||'—')+(o.veh||o.dominio?'  —  '+esc(o.veh||'')+(o.dominio?' ('+esc(o.dominio)+')':''):'')+'</div></div>'+
+    '</div>'+
+    '<div class="resumen">'+
+      '<div class="r"><span>Total de la orden</span><b>'+money(t.venta)+'</b></div>'+
+      '<div class="r"><span>Entregado a cuenta</span><b>'+money(totAC)+'</b></div>'+
+      '<div class="r"><span>Saldo pendiente</span><b>'+money(saldo)+'</b></div>'+
+    '</div>'+
+    '<div class="firma"><div class="box">'+((o.soc!=='AT'&&db.cfg.firmaTQ)?'<img src="'+db.cfg.firmaTQ+'">':'')+'Firma y aclaración · '+esc(cfg.rz||'')+'</div></div>'+
+    '<div class="legal">'+esc(cfg.rz||'Taller')+(cfg.cuit?' · CUIT '+esc(cfg.cuit):'')+' — Recibo de pago a cuenta / seña por la orden N° '+esc(o.numero||'')+', emitido el '+fFecha(f)+'. Comprobante interno, no válido como factura.</div>'+
+    '</body></html>';
+  const w=window.open('', 'recibo_taller');
+  if(!w) return toast('Permití las ventanas emergentes para ver el recibo.');
+  w.document.open(); w.document.write(html); w.document.close(); w.focus();
+  toast('Recibo generado. La orden quedó guardada.');
 }
 function guardarOTsilencioso(){
   const datos = {
